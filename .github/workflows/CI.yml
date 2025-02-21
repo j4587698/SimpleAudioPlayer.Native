@@ -269,7 +269,7 @@ jobs:
               ;;
           esac
 
-          ./configure "${CONFIG_FLAGS[@]}"
+          ./configure "${CONFIG_FLAGS[@]}"  --pkg-config-flags="--static"
 
       - name: Build and Install
         shell: bash
