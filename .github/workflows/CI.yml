@@ -1,0 +1,55 @@
+name: Build Audio Native
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: linux
+            arch: x86_64
+            os: ubuntu-latest
+          - platform: macos
+            arch: x86_64
+            os: macos-latest
+          - platform: windows
+            arch: x86_64
+            os: windows-latest
+          - platform: android
+            arch: armv7a
+            os: ubuntu-latest
+          - platform: android
+            arch: aarch64
+            os: ubuntu-latest
+          - platform: ios
+            arch: arm64
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Environment
+      run: |
+        sudo apt-get update && sudo apt-get install -y \
+          autoconf automake build-essential cmake git libtool \
+          mingw-w64 nasm pkg-config yasm
+
+    - name: Setup Android NDK
+      if: matrix.platform == 'android'
+      uses: android-actions/setup-android@v1
+      with:
+        ndk-version: '25.1.8937393'
+
+    - name: Build
+      run: |
+        chmod +x build_ffmpeg.sh
+        ./build_ffmpeg.sh ${{ matrix.platform }} ${{ matrix.arch }}
+
+    - name: Archive Output
+      uses: actions/upload-artifact@v3
+      with:
+        name: ffmpeg-${{ matrix.platform }}-${{ matrix.arch }}
+        path: output/${{ matrix.platform }}/${{ matrix.arch }}
