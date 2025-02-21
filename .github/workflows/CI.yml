@@ -256,8 +256,6 @@ jobs:
                 --target-os=mingw32
                 --cross-prefix=x86_64-w64-mingw32-
                 --arch=x86_64
-                --enable-static
-                --disable-shared
                 --extra-cflags="-static -I/usr/x86_64-w64-mingw32/include"
                 --extra-ldflags="-static -L/usr/x86_64-w64-mingw32/lib"
               )
