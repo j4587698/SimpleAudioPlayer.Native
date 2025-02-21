@@ -111,7 +111,7 @@ jobs:
 
       - name: Clone FFmpeg
         run: |
-          git clone --depth 1 --branch n${FFMPEG_VERSION} https://github.com/FFmpeg/FFmpeg.git
+          git clone --depth 1 --branch n7.1 https://github.com/FFmpeg/FFmpeg.git
 
       - name: Configure FFmpeg
         shell: bash
@@ -225,7 +225,7 @@ jobs:
                 --ar=$TOOLCHAIN/bin/llvm-ar
                 --ranlib=$TOOLCHAIN/bin/llvm-ranlib
                 --strip=$TOOLCHAIN/bin/llvm-strip
-                --extra-cflags="-D__ANDROID_API__=${matrix.min_api}"
+                --extra-cflags="-D__ANDROID_API__=${{ matrix.min_api }}"
               )
               ;;
 
