@@ -80,10 +80,7 @@ jobs:
 
       - name: Setup Android NDK
         if: matrix.platform == 'android'
-        uses: android-actions/setup-ndk@v1
-        with:
-          ndk-version: r26b
-          cache: true
+        uses: android-actions/setup-android@v2
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
