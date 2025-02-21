@@ -111,7 +111,7 @@ jobs:
 
       - name: Clone FFmpeg
         run: |
-          git clone --depth 1 --branch $FFMPEG_VERSION \
+          git clone --depth 1 --branch release/$FFMPEG_VERSION \
             https://github.com/FFmpeg/FFmpeg.git
 
       - name: Configure FFmpeg
