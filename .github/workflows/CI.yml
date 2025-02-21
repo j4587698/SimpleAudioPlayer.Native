@@ -65,7 +65,7 @@ jobs:
             arch: aarch64
 
           # Windows builds
-          - os: windows-latest
+          - os: ubuntu-latest
             platform: windows
             arch: x86_64
             toolchain: mingw64
@@ -100,14 +100,16 @@ jobs:
           brew install nasm pkg-config
 
       - name: Install Windows toolchain
-        if: matrix.platform == 'windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          update: true
-          install: |
-            base-devel
-            mingw-w64-x86_64-toolchain
-            nasm
+      if: matrix.platform == 'windows'
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+          gcc-mingw-w64-x86-64 \
+          g++-mingw-w64-x86-64 \
+          binutils-mingw-w64 \
+          mingw-w64-common \
+          mingw-w64-tools \
+          nasm
 
       - name: Clone FFmpeg
         run: |
@@ -254,8 +256,10 @@ jobs:
                 --target-os=mingw32
                 --cross-prefix=x86_64-w64-mingw32-
                 --arch=x86_64
-                --extra-cflags="-I/msys64/mingw64/include"
-                --extra-ldflags="-L/msys64/mingw64/lib"
+                --enable-static
+                --disable-shared
+                --extra-cflags="-static -I/usr/x86_64-w64-mingw32/include"
+                --extra-ldflags="-static -L/usr/x86_64-w64-mingw32/lib"
               )
               ;;
 
