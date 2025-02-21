@@ -1,55 +1,290 @@
-name: Build Audio Native
+name: Build FFmpeg Static Libraries
 
-on: [push, workflow_dispatch]
+on:
+  workflow_dispatch:
+    inputs:
+      ffmpeg_version:
+        description: 'FFmpeg version (default: 7.1)'
+        required: false
+        default: '7.1'
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - platform: linux
-            arch: x86_64
-            os: ubuntu-latest
-          - platform: macos
-            arch: x86_64
-            os: macos-latest
-          - platform: windows
-            arch: x86_64
-            os: windows-latest
-          - platform: android
+          # Android builds
+          - os: ubuntu-latest
+            platform: android
             arch: armv7a
-            os: ubuntu-latest
-          - platform: android
+            target: armeabi-v7a
+            toolchain_prefix: armv7a-linux-androideabi
+            min_api: 21
+
+          - os: ubuntu-latest
+            platform: android
             arch: aarch64
-            os: ubuntu-latest
-          - platform: ios
+            target: arm64-v8a
+            toolchain_prefix: aarch64-linux-android
+            min_api: 21
+
+          - os: ubuntu-latest
+            platform: android
+            arch: x86_64
+            target: x86_64
+            toolchain_prefix: x86_64-linux-android
+            min_api: 21
+
+          # iOS builds
+          - os: macos-latest
+            platform: ios
             arch: arm64
-            os: macos-latest
+            min_version: 12.0
+            sdk: iphoneos
 
-    runs-on: ${{ matrix.os }}
+          # macOS builds
+          - os: macos-latest
+            platform: macos
+            arch: x86_64
+            min_version: 10.15
+
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            min_version: 11.0
+
+          # Linux builds
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+
+          - os: ubuntu-latest
+            platform: linux
+            arch: aarch64
+
+          # Windows builds
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            toolchain: mingw64
+
+    env:
+      FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '7.1' }}
+      PREFIX: ${{ github.workspace }}/output/${{ matrix.platform }}/${{ matrix.arch }}
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Environment
-      run: |
-        sudo apt-get update && sudo apt-get install -y \
-          autoconf automake build-essential cmake git libtool \
-          mingw-w64 nasm pkg-config yasm
+      - name: Setup Android NDK
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          cache: true
 
-    - name: Setup Android NDK
-      if: matrix.platform == 'android'
-      uses: android-actions/setup-android@v1
-      with:
-        ndk-version: '25.1.8937393'
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            nasm \
+            pkg-config \
+            clang \
+            make \
+            autoconf \
+            libtool
 
-    - name: Build
-      run: |
-        chmod +x build_ffmpeg.sh
-        ./build_ffmpeg.sh ${{ matrix.platform }} ${{ matrix.arch }}
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install nasm pkg-config
 
-    - name: Archive Output
-      uses: actions/upload-artifact@v4
-      with:
-        name: ffmpeg-${{ matrix.platform }}-${{ matrix.arch }}
-        path: output/${{ matrix.platform }}/${{ matrix.arch }}
+      - name: Install Windows toolchain
+        if: matrix.platform == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: |
+            base-devel
+            mingw-w64-x86_64-toolchain
+            nasm
+
+      - name: Clone FFmpeg
+        run: |
+          git clone --depth 1 --branch $FFMPEG_VERSION \
+            https://github.com/FFmpeg/FFmpeg.git
+
+      - name: Configure FFmpeg
+        shell: bash
+        working-directory: FFmpeg
+        run: |
+          CONFIG_FLAGS=(
+            --disable-shared
+            --enable-static
+            --enable-pic
+            --disable-doc
+            --disable-debug
+            --disable-avdevice
+            --disable-swscale
+            --disable-programs
+            --disable-network
+            --disable-muxers
+            --disable-zlib
+            --disable-lzma
+            --disable-bzlib
+            --disable-iconv
+            --disable-libxcb
+            --disable-bsfs
+            --disable-filters
+            --disable-indevs
+            --disable-outdevs
+            --disable-encoders
+            --disable-decoders
+            --disable-hwaccels
+            --disable-nvenc
+            --disable-videotoolbox
+            --disable-audiotoolbox
+            --enable-filter=aformat
+            --enable-filter=anull
+            --enable-filter=atrim
+            --enable-filter=format
+            --enable-filter=null
+            --enable-filter=setpts
+            --enable-filter=trim
+            --enable-protocol=file
+            --enable-protocol=pipe
+            # 保留您指定的 demuxers/decoders
+            --enable-demuxer=aac
+            --enable-demuxer=ac3
+            --enable-demuxer=aiff
+            --enable-demuxer=ape
+            --enable-demuxer=asf
+            --enable-demuxer=au
+            --enable-demuxer=flac
+            --enable-demuxer=mov
+            --enable-demuxer=mp3
+            --enable-demuxer=mpc
+            --enable-demuxer=mpc8
+            --enable-demuxer=ogg
+            --enable-demuxer=pcm_alaw
+            --enable-demuxer=pcm_mulaw
+            --enable-demuxer=pcm_s32be
+            --enable-demuxer=pcm_s32le
+            --enable-demuxer=pcm_s24be
+            --enable-demuxer=pcm_s24le
+            --enable-demuxer=pcm_s16be
+            --enable-demuxer=pcm_s16le
+            --enable-demuxer=pcm_s8
+            --enable-demuxer=rm
+            --enable-demuxer=wav
+            --enable-demuxer=wv
+            --enable-demuxer=xwma
+            --enable-demuxer=dsf
+            --enable-demuxer=apc
+            --enable-demuxer=dff
+            --enable-demuxer=latm
+            --enable-demuxer=caf
+            --enable-demuxer=mp4
+            --enable-demuxer=nut
+            --enable-demuxer=film_cpk
+            --enable-decoder=ape
+            --enable-decoder=flac
+            --enable-decoder=alac
+            --enable-decoder=wavpack
+            --enable-decoder=dsd_lsbf
+            --enable-decoder=dsd_msbf
+            --enable-decoder=mp3
+            --enable-decoder=aac
+            --enable-decoder=aac_latm
+            --enable-decoder=opus
+            --enable-decoder=vorbis
+            --enable-decoder=pcm_s16le
+            --enable-decoder=pcm_s24le
+            --enable-decoder=pcm_s32le
+            --enable-decoder=pcm_f32le
+            --enable-decoder=pcm_s16be
+            --enable-decoder=pcm_s24be
+            --enable-decoder=pcm_s32be
+            --enable-decoder=pcm_u8
+            --enable-decoder=pcm_s8
+            --enable-decoder=pcm_alaw
+            --enable-decoder=pcm_mulaw
+            --enable-decoder=pcm_bluray
+            --enable-decoder=pcm_dvd
+            --prefix=$PREFIX
+          )
+
+          case ${{ matrix.platform }} in
+            android)
+              NDK_ROOT=$ANDROID_NDK_ROOT
+              TOOLCHAIN=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64
+              CONFIG_FLAGS+=(
+                --target-os=android
+                --enable-cross-compile
+                --sysroot=$TOOLCHAIN/sysroot
+                --cc=$TOOLCHAIN/bin/${matrix.toolchain_prefix}${matrix.min_api}-clang
+                --ar=$TOOLCHAIN/bin/llvm-ar
+                --ranlib=$TOOLCHAIN/bin/llvm-ranlib
+                --strip=$TOOLCHAIN/bin/llvm-strip
+                --extra-cflags="-D__ANDROID_API__=${matrix.min_api}"
+              )
+              ;;
+
+            ios)
+              SDKROOT=$(xcrun --sdk ${{ matrix.sdk }} --show-sdk-path)
+              CONFIG_FLAGS+=(
+                --target-os=darwin
+                --enable-cross-compile
+                --arch=${{ matrix.arch }}
+                --extra-cflags="-arch ${{ matrix.arch }} -mios-version-min=${{ matrix.min_version }} -isysroot $SDKROOT"
+                --extra-ldflags="-arch ${{ matrix.arch }} -mios-version-min=${{ matrix.min_version }} -isysroot $SDKROOT"
+              )
+              ;;
+
+            macos)
+              CONFIG_FLAGS+=(
+                --target-os=darwin
+                --arch=${{ matrix.arch }}
+                --extra-cflags="-arch ${{ matrix.arch }} -mmacosx-version-min=${{ matrix.min_version }}"
+                --extra-ldflags="-arch ${{ matrix.arch }} -mmacosx-version-min=${{ matrix.min_version }}"
+              )
+              ;;
+
+            windows)
+              CONFIG_FLAGS+=(
+                --target-os=mingw32
+                --cross-prefix=x86_64-w64-mingw32-
+                --arch=x86_64
+                --extra-cflags="-I/msys64/mingw64/include"
+                --extra-ldflags="-L/msys64/mingw64/lib"
+              )
+              ;;
+
+            linux)
+              CONFIG_FLAGS+=(--target-os=linux)
+              [[ "${{ matrix.arch }}" == "aarch64" ]] && CONFIG_FLAGS+=(--arch=aarch64)
+              ;;
+          esac
+
+          ./configure "${CONFIG_FLAGS[@]}"
+
+      - name: Build and Install
+        shell: bash
+        working-directory: FFmpeg
+        run: |
+          make -j$(nproc)
+          make install
+
+      - name: Archive output
+        run: |
+          cd output
+          zip -r ${{ matrix.platform }}_${{ matrix.arch }}.zip ${{ matrix.platform }}/${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg_${{ matrix.platform }}_${{ matrix.arch }}
+          path: output/${{ matrix.platform }}_${{ matrix.arch }}.zip
