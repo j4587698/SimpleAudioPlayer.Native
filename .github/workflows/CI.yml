@@ -111,8 +111,7 @@ jobs:
 
       - name: Clone FFmpeg
         run: |
-          git clone --depth 1 --branch n${FFMPEG_VERSION} \
-            https://github.com/FFmpeg/FFmpeg.git
+          git clone --depth 1 --branch n${FFMPEG_VERSION} https://github.com/FFmpeg/FFmpeg.git
 
       - name: Configure FFmpeg
         shell: bash
@@ -222,7 +221,7 @@ jobs:
                 --target-os=android
                 --enable-cross-compile
                 --sysroot=$TOOLCHAIN/sysroot
-                --cc=$TOOLCHAIN/bin/${matrix.toolchain_prefix}${matrix.min_api}-clang
+                --cc=$TOOLCHAIN/bin/${{ matrix.toolchain_prefix }}${{ matrix.min_api }}-clang
                 --ar=$TOOLCHAIN/bin/llvm-ar
                 --ranlib=$TOOLCHAIN/bin/llvm-ranlib
                 --strip=$TOOLCHAIN/bin/llvm-strip
@@ -272,7 +271,7 @@ jobs:
         shell: bash
         working-directory: FFmpeg
         run: |
-          make -j$(nproc)
+          make -j1
           make install
 
       - name: Archive output
