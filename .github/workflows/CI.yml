@@ -49,7 +49,7 @@ jobs:
         ./build_ffmpeg.sh ${{ matrix.platform }} ${{ matrix.arch }}
 
     - name: Archive Output
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ffmpeg-${{ matrix.platform }}-${{ matrix.arch }}
         path: output/${{ matrix.platform }}/${{ matrix.arch }}
