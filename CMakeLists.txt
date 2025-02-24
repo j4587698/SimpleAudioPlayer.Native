@@ -2,29 +2,6 @@ cmake_minimum_required(VERSION 3.20)
 project(audio_player)
 
 #-----------------------------------------------------------------------
-# 交叉编译工具链配置
-#-----------------------------------------------------------------------
-#set(CMAKE_SYSTEM_NAME Windows)
-#set(TOOLCHAIN_PREFIX x86_64-w64-mingw32)
-
-# 查找MinGW工具链
-find_program(MINGW_CC ${TOOLCHAIN_PREFIX}-gcc REQUIRED)
-find_program(MINGW_CXX ${TOOLCHAIN_PREFIX}-g++ REQUIRED)
-find_program(MINGW_AR ${TOOLCHAIN_PREFIX}-ar REQUIRED)
-find_program(MINGW_RANLIB ${TOOLCHAIN_PREFIX}-ranlib REQUIRED)
-
-set(CMAKE_C_COMPILER ${MINGW_CC})
-set(CMAKE_CXX_COMPILER ${MINGW_CXX})
-set(CMAKE_AR ${MINGW_AR})
-set(CMAKE_RANLIB ${MINGW_RANLIB})
-
-# 系统根目录配置
-set(CMAKE_FIND_ROOT_PATH /usr/${TOOLCHAIN_PREFIX})
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-
-#-----------------------------------------------------------------------
 # 项目结构配置
 #-----------------------------------------------------------------------
 set(CMAKE_C_STANDARD 11)
@@ -76,6 +53,7 @@ ExternalProject_Add(ffmpeg
     BUILD_BYPRODUCTS
         ${FFMPEG_INSTALL_DIR}/lib/libavcodec.a
         ${FFMPEG_INSTALL_DIR}/lib/libavformat.a
+		${FFMPEG_INSTALL_DIR}/lib/libswresample.a
         ${FFMPEG_INSTALL_DIR}/lib/libavutil.a
 )
 
@@ -86,6 +64,7 @@ add_library(audio_player SHARED
     src/audio_player.c
     src/audio_player.h
     src/miniaudio_ffmpeg.h
+	src/miniaudio.h
 )
 
 target_include_directories(audio_player PRIVATE
@@ -95,8 +74,9 @@ target_include_directories(audio_player PRIVATE
 
 # 静态链接配置
 target_link_libraries(audio_player PRIVATE
-    ${FFMPEG_INSTALL_DIR}/lib/libavcodec.a
-    ${FFMPEG_INSTALL_DIR}/lib/libavformat.a
+	${FFMPEG_INSTALL_DIR}/lib/libavformat.a
+    ${FFMPEG_INSTALL_DIR}/lib/libavcodec.a    
+	${FFMPEG_INSTALL_DIR}/lib/libswresample.a
     ${FFMPEG_INSTALL_DIR}/lib/libavutil.a
 )
 
@@ -110,15 +90,25 @@ target_link_libraries(audio_player PRIVATE
 
 # 静态链接选项
 target_link_options(audio_player PRIVATE
-    -static
+    #-static
     -static-libgcc
     -static-libstdc++
     -Wl,--enable-auto-import
+	-Wl,--output-def,${CMAKE_BINARY_DIR}/audio_player.def
+	-Wl,--kill-at          # 移除调用约定后缀
 )
 
-# 符号导出控制
 set_target_properties(audio_player PROPERTIES
     WINDOWS_EXPORT_ALL_SYMBOLS ON
+    C_VISIBILITY_PRESET default  # 必须设置为default
+)
+
+# 在 audio_player 目标定义后添加
+target_compile_definitions(audio_player PRIVATE
+    AUDIO_EXPORTS    # 自动定义该宏
+	MA_NO_WAV
+	MA_NO_MP3
+	MA_NO_FLAC
 )
 
 # 依赖管理
