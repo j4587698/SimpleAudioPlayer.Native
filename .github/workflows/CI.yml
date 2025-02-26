@@ -37,7 +37,7 @@ jobs:
         mkdir $ARTIFACT_DIR/win64
         cp $BUILD_DIR/win64/bin/*.dll $ARTIFACT_DIR/win64/
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: windows-x64-binaries
         path: $ARTIFACT_DIR/win64/
@@ -73,7 +73,7 @@ jobs:
         mkdir -p $ARTIFACT_DIR/linux-${{ matrix.arch }}
         cp $BUILD_DIR/linux-${{ matrix.arch }}/lib/*.so $ARTIFACT_DIR/linux-${{ matrix.arch }}/
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: linux-${{ matrix.arch }}-binaries
         path: $ARTIFACT_DIR/linux-${{ matrix.arch }}/
@@ -99,7 +99,7 @@ jobs:
         lipo -create -output $ARTIFACT_DIR/macos/libaudio_player.dylib \
           $BUILD_DIR/macos/lib/*.dylib
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: macos-universal-binaries
         path: $ARTIFACT_DIR/macos/
@@ -115,9 +115,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup NDK
-      uses: android-actions/setup-ndk@v1
-      with:
-        ndk-version: r25c
+      uses: android-actions/setup-android@v2
 
     - name: Configure
       run: |
@@ -134,7 +132,7 @@ jobs:
         mkdir -p $ARTIFACT_DIR/android-${{ matrix.abi }}
         cp $BUILD_DIR/android-${{ matrix.abi }}/lib/*.so $ARTIFACT_DIR/android-${{ matrix.abi }}/
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: android-${{ matrix.abi }}-binaries
         path: $ARTIFACT_DIR/android-${{ matrix.abi }}/
