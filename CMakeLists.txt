@@ -74,6 +74,14 @@ elseif(ANDROID)
         --enable-neon
         --enable-thumb
         --sysroot=${ANDROID_NDK}
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+	list(APPEND FFMPEG_BASE_ARGS
+		--enable-vfp
+		--enable-neon
+		--cpu=armv7-a
+		--extra-cflags=-mfloat-abi=hard
+	)
+	endif()
     )
 elseif(APPLE)
     list(APPEND FFMPEG_BASE_ARGS
