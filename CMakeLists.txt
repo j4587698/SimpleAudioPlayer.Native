@@ -94,6 +94,7 @@ elseif(LINUX)
 			--enable-vfp
 			--enable-neon
 			--cpu=armv7-a
+			--extra-cflags=-mfloat-abi=hard -mfpu=neon-vfpv4
 		)
 	endif()
 endif()
