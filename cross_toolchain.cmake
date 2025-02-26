@@ -7,8 +7,8 @@ set(CMAKE_SYSTEM_PROCESSOR ${CROSS_ARCH})
 
 # 架构映射表
 set(ARCH_MAP
-    "armv7=arm-linux-gnueabihf"
-    "arm64=aarch64-linux-gnu"
+    "arm=arm-linux-gnueabihf"
+    "aarch64=aarch64-linux-gnu"
     "x86_64=x86_64-linux-gnu"
     "x86_64-windows=x86_64-w64-mingw32"
 )
@@ -57,7 +57,7 @@ elseif("${CROSS_TARGET}" STREQUAL "Linux")
 	set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -fPIC")
 
     # ARM优化
-    if(CROSS_ARCH MATCHES "armv7")
+    if(CROSS_ARCH MATCHES "arm")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard -mfpu=neon-vfpv4")
     endif()
 
