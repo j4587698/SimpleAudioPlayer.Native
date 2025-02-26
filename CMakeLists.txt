@@ -73,7 +73,7 @@ elseif(ANDROID)
         --arch=${CROSS_ARCH}
         --enable-neon
         --enable-thumb
-        --sysroot=${ANDROID_SYSROOT}
+        --sysroot=${ANDROID_NDK}
     )
 elseif(APPLE)
     list(APPEND FFMPEG_BASE_ARGS
@@ -94,7 +94,7 @@ elseif(LINUX)
 			--enable-vfp
 			--enable-neon
 			--cpu=armv7-a
-			--extra-cflags=-mfloat-abi=hard -mfpu=neon-vfpv4
+			--extra-cflags=-mfloat-abi=hard
 		)
 	endif()
 endif()
