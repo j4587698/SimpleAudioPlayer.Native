@@ -86,11 +86,14 @@ elseif(APPLE)
 elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS
 		--arch=${CROSS_ARCH}
+		--cross-prefix=${TOOLCHAIN_PREFIX}-
+		--enable-cross-compile
 	)
 	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS
 			--enable-vfp
 			--enable-neon
+			--cpu=armv7-a
 		)
 	endif()
 endif()
