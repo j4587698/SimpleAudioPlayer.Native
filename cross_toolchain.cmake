@@ -90,8 +90,8 @@ elseif("${CROSS_TARGET}" STREQUAL "Android")
     include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 
     # NEON优化
-    if(CROSS_ARCH MATCHES "arm")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -mfloat-abi=softfp")
+    if(CROSS_ARCH MATCHES "armeabi-v7a")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -mfloat-abi=hard")
     endif()
 endif()
 

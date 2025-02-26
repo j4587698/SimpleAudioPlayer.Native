@@ -73,11 +73,10 @@ elseif(ANDROID)
         --arch=${CROSS_ARCH}
         --sysroot=${ANDROID_NDK}/sysroot
     )
-	if(CMAKE_ANDROID_ARCH_ABI MATCHES "arm")
+	if(CMAKE_ANDROID_ARCH_ABI MATCHES "armeabi-v7a")
 		list(APPEND FFMPEG_BASE_ARGS
 			--enable-vfp
 			--enable-neon
-			--extra-cflags=-mfloat-abi=hard
 		)
 	endif()
 elseif(APPLE)
