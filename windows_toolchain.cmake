@@ -11,6 +11,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
-set(CMAKE_SHARED_LINKER_FLAGS 
-    "-Wl,--major-image-version=0,--minor-image-version=0"
-)
+set(CMAKE_C_FLAGS_RELEASE "-Os -ffunction-sections -fdata-sections -Wl,--gc-sections -s")
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s -Wl,--exclude-libs=ALL")
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic")
