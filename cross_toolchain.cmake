@@ -57,7 +57,7 @@ elseif("${CROSS_TARGET}" STREQUAL "Linux")
 	set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -fPIC")
 
     # ARM优化
-    if(CROSS_ARCH MATCHES "arm")
+    if(CROSS_ARCH MATCHES "armv7")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard -mfpu=neon-vfpv4")
     endif()
 
@@ -79,20 +79,10 @@ elseif("${CROSS_TARGET}" STREQUAL "Darwin")
 elseif("${CROSS_TARGET}" STREQUAL "Android")
     # Android NDK自动配置
     set(ANDROID_NDK $ENV{ANDROID_NDK_ROOT} CACHE PATH "Android NDK path")
-    set(ANDROID_ABI_MAP
-        "armv7=armeabi-v7a"
-        "arm64=arm64-v8a"
-        "x86_64=x86_64"
-    )
-    
-    # 自动匹配ABI
-    list(FIND ANDROID_ABI_MAP "${CROSS_ARCH}" ABI_INDEX)
-    math(EXPR PAIR_INDEX "${ABI_INDEX} + 1")
-    list(GET ANDROID_ABI_MAP ${PAIR_INDEX} ANDROID_ABI)
     
     # 工具链配置
     set(ANDROID_TOOLCHAIN_PREFIX "llvm")
-    set(ANDROID_NATIVE_API_LEVEL 24 CACHE STRING "Android API level")
+    set(ANDROID_NATIVE_API_LEVEL 21 CACHE STRING "Android API level")
     include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 
     # NEON优化
