@@ -58,7 +58,9 @@ jobs:
     - name: Setup Cross Tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake gcc g++
+        sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
 
     - name: Configure
       run: |

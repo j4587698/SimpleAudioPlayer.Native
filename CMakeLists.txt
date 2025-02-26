@@ -101,8 +101,8 @@ elseif(LINUX)
 		list(APPEND FFMPEG_BASE_ARGS
 			--enable-vfp
 			--enable-neon
-			--cpu=armv7-a
 			--extra-cflags=-mfloat-abi=hard
+			
 		)
 	endif()
 endif()
