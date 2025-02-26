@@ -61,20 +61,24 @@ elseif("${CROSS_TARGET}" STREQUAL "Linux")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard -mfpu=neon-vfpv4")
     endif()
 
-elseif("${CROSS_TARGET}" STREQUAL "Darwin")
+elseif("${CROSS_TARGET}" STREQUAL "macOS")
     # macOS/iOS通用配置
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Target architectures")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum OS version")
-    set(CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH NO)
+    # 自动获取 SDK 路径
+    execute_process(
+        COMMAND xcrun --show-sdk-path
+        OUTPUT_VARIABLE SDK_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    # 设置系统级参数
+    set(CMAKE_OSX_SYSROOT ${SDK_PATH})
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures")
+    
+    # 移除冲突的编译参数
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isysroot ${SDK_PATH}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${SDK_PATH}")
 
-    # iOS特殊配置
-    if(IOS)
-        set(CMAKE_SYSTEM_NAME iOS)
-        set(CMAKE_OSX_SYSROOT iphoneos)
-        set(CMAKE_OSX_ARCHITECTURES "arm64")
-    else()
-        set(CMAKE_OSX_SYSROOT auto)
-    endif()
 
 elseif("${CROSS_TARGET}" STREQUAL "Android")
     # Android NDK自动配置

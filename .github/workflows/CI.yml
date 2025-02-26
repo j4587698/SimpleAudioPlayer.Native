@@ -12,15 +12,18 @@ env:
 jobs:
   windows:
     name: Windows x64
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v4
 
     - name: Setup MinGW
       run: |
-        choco install mingw -y
-        echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" >> $GITHUB_PATH
+        sudo apt-get update
+        # 安装 MinGW-w64 工具链（包含 posix 线程和异常处理）
+        sudo apt-get install -y \
+          mingw-w64 \
+          wine64
 
     - name: Configure
       run: |
@@ -85,11 +88,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Setup Xcode
+      run: |
+        sudo xcode-select -s /Applications/Xcode_15.4.app
+        sudo xcodebuild -license accept
+        xcrun --show-sdk-path  # 验证 SDK 路径
+
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/macos \
-          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
-          -DCROSS_TARGET=Darwin
+        cmake -B build/macos \
+          -DCMAKE_TOOLCHAIN_FILE=cmake/cross_toolchain.cmake \
+          -DCROSS_TARGET=macOS \
+          -DCMAKE_OSX_ARCHITECTURES="arm64"  # 明确指定单一架构
 
     - name: Build
       run: cmake --build $BUILD_DIR/macos --config Release
