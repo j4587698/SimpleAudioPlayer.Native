@@ -56,6 +56,7 @@ set(FFMPEG_BASE_ARGS
 	--enable-pic
 	--extra-cflags=-fPIC
 	--extra-ldflags=-fPIC
+	--enable-cross-compile
 )
 
 
@@ -77,7 +78,6 @@ elseif(ANDROID)
 elseif(APPLE)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=darwin
-        --enable-cross-compile
         --sysroot=${CMAKE_OSX_SYSROOT}
     )
     if(IOS)
@@ -87,7 +87,7 @@ elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS
 		--arch=${CROSS_ARCH}
 		--cross-prefix=${TOOLCHAIN_PREFIX}-
-		--enable-cross-compile
+		--target-os=linux
 	)
 	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS
