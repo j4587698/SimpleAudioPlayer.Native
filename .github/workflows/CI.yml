@@ -33,7 +33,7 @@ jobs:
           -DCROSS_ARCH=x86_64-windows
 
     - name: Build
-      run: cmake --build $BUILD_DIR/win64 --config Release
+      run: cmake --build $BUILD_DIR/win64 --config Release -- -j1 VERBOSE=1
 
     - name: Package
       run: |
@@ -69,7 +69,7 @@ jobs:
           -DCROSS_ARCH=${{ matrix.arch }}
 
     - name: Build
-      run: cmake --build $BUILD_DIR/linux-${{ matrix.arch }} -- -j1
+      run: cmake --build $BUILD_DIR/linux-${{ matrix.arch }} -- -j1 VERBOSE=1
 
     - name: Package
       run: |
@@ -102,7 +102,7 @@ jobs:
           -DCMAKE_OSX_ARCHITECTURES="arm64"  # 明确指定单一架构
 
     - name: Build
-      run: cmake --build $BUILD_DIR/macos --config Release
+      run: cmake --build $BUILD_DIR/macos --config Release -- -j1 VERBOSE=1
 
     - name: Create Universal Binary
       run: |
@@ -135,7 +135,7 @@ jobs:
           -DCROSS_ARCH=${{ matrix.abi }}
 
     - name: Build
-      run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}
+      run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}  -- -j1 VERBOSE=1
 
     - name: Package
       run: |
