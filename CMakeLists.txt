@@ -84,9 +84,11 @@ elseif(APPLE)
         list(APPEND FFMPEG_BASE_ARGS --disable-asm)
     endif()
 elseif(LINUX)
+	list(APPEND FFMPEG_BASE_ARGS
+		--arch=${CROSS_ARCH}
+	)
 	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS
-			--arch=${CROSS_ARCH}
 			--enable-vfp
 			--enable-neon
 		)
