@@ -25,7 +25,7 @@ jobs:
     - name: Configure
       run: |
         cmake -B $BUILD_DIR/win64 `
-          -DCMAKE_TOOLCHAIN_FILE=cmake/cross_toolchain.cmake `
+          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake `
           -DCROSS_TARGET=Windows `
           -DCROSS_ARCH=x86_64-windows
 
@@ -61,7 +61,7 @@ jobs:
     - name: Configure
       run: |
         cmake -B $BUILD_DIR/linux-${{ matrix.arch }} \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/cross_toolchain.cmake \
+          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
           -DCROSS_TARGET=Linux \
           -DCROSS_ARCH=${{ matrix.arch }}
 
@@ -88,7 +88,7 @@ jobs:
     - name: Configure
       run: |
         cmake -B $BUILD_DIR/macos \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/cross_toolchain.cmake \
+          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
           -DCROSS_TARGET=Darwin
 
     - name: Build
@@ -120,7 +120,7 @@ jobs:
     - name: Configure
       run: |
         cmake -B $BUILD_DIR/android-${{ matrix.abi }} \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/cross_toolchain.cmake \
+          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
           -DCROSS_TARGET=Android \
           -DCROSS_ARCH=${{ matrix.abi }}
 
