@@ -91,7 +91,7 @@ elseif("${CROSS_TARGET}" STREQUAL "Android")
 
     # NEON优化
     if(CROSS_ARCH MATCHES "armeabi-v7a")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -mfloat-abi=hard")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=neon -mfloat-abi=softfp")
     endif()
 endif()
 
