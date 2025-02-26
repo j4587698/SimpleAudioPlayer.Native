@@ -71,15 +71,12 @@ elseif(ANDROID)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=android
         --arch=${CROSS_ARCH}
-        --enable-neon
-        --enable-thumb
         --sysroot=${ANDROID_NDK}/sysroot
     )
-	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+	if(CMAKE_ANDROID_ARCH_ABI MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS
 			--enable-vfp
 			--enable-neon
-			--cpu=armv7-a
 			--extra-cflags=-mfloat-abi=hard
 		)
 	endif()

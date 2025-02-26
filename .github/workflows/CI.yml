@@ -134,6 +134,7 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
           -DCROSS_TARGET=Android \
           -DCROSS_ARCH=${{ matrix.abi }}
+          -DANDROID_ABI=${{ matrix.abi }}
 
     - name: Build
       run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}  -- -j1 VERBOSE=1
