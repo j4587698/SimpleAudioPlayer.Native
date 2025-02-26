@@ -120,10 +120,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        abi: [arm, aarch64, x86_64]
+        abi: [armeabi-v7a, arm64-v8a, x86_64]
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Setup Cross Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install ninja-build
 
     - name: Setup NDK
       uses: android-actions/setup-android@v2
@@ -134,7 +139,8 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
           -DCROSS_TARGET=Android \
           -DCROSS_ARCH=${{ matrix.abi }} \
-          -DANDROID_ABI=${{ matrix.abi }}
+          -DANDROID_ABI=${{ matrix.abi }} \
+          -G Ninja
 
     - name: Build
       run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}  -- -j1 VERBOSE=1
