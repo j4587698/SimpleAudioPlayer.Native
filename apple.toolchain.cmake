@@ -19,7 +19,7 @@ elseif("${APPLE_PLATFORM}" STREQUAL "IOS")
     set(SDK_PATH ${SDK_PATH}/iPhoneOS.sdk)  # 修正为iOS SDK路径
 endif()
 
-set(CMAKE_SYSTEM_NAME Daw)
+set(CMAKE_SYSTEM_NAME Darwin)
 
 # 系统级配置
 set(CMAKE_OSX_SYSROOT ${SDK_PATH})

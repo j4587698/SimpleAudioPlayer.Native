@@ -27,7 +27,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B windows-x86_64 \
+        cmake -B $BUILD_DIR/win64 \
           -DCMAKE_TOOLCHAIN_FILE=windows.toolchain.cmake \
           -DCROSS_ARCH=x86_64
 
@@ -133,7 +133,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B android-${{ matrix.abi }} \
+        cmake -B $BUILD_DIR/android-${{ matrix.abi }} \
           -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
           -DCROSS_TARGET=Android \
           -DCROSS_ARCH=${{ matrix.abi }} \

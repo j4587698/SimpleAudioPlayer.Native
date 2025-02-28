@@ -186,7 +186,18 @@ elseif(APPLE)
     find_library(AUDIO_TOOLBOX AudioToolbox)
     find_library(CORE_FOUNDATION CoreFoundation)
     target_link_libraries(audio_player PRIVATE
-        ${AUDIO_TOOLBOX} ${CORE_FOUNDATION}
+        ${AUDIO_TOOLBOX} ${CORE_FOUNDATION} 
+		"-framework CoreFoundation"
+        "-framework CoreAudio"
+        "-framework AudioToolbox"
+        "-lpthread"
+        "-lm"
+    )
+	set_target_properties(audio_player PROPERTIES
+        # Enable code signing for macOS (ad-hoc signing)
+        CODE_SIGNING_REQUIRED TRUE
+        CODE_SIGNING_ALLOWED TRUE
+        CODE_SIGN_IDENTITY "-"
     )
 elseif(ANDROID)
 	add_link_options(
