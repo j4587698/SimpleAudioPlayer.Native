@@ -20,6 +20,7 @@ elseif("${APPLE_PLATFORM}" STREQUAL "IOS")
 endif()
 
 set(CMAKE_SYSTEM_NAME Darwin)
+set(APPLE TRUE)
 
 # 系统级配置
 set(CMAKE_OSX_SYSROOT ${SDK_PATH})

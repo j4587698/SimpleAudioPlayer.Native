@@ -54,6 +54,7 @@ set(FFMPEG_BASE_ARGS
     --disable-bzlib
     --disable-lzma
 	--disable-asm
+	--disable-vulkan
     --disable-everything
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
     --enable-decoder=ape,flac,alac,wavpack,mp3,aac,pcm_s16le,pcm_s24le,pcm_s32le
