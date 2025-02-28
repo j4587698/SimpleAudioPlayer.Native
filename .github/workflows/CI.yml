@@ -95,8 +95,8 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B build/macos \
-          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
+        cmake -B $BUILD_DIR/macos \
+          -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
           -DCROSS_TARGET=macOS \
           -DCMAKE_OSX_ARCHITECTURES="arm64"  # 明确指定单一架构
 
