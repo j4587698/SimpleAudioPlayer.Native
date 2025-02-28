@@ -1,4 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
+
+if(ANDROID)
+    # 强制使用LLD链接器
+    set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld" CACHE STRING "" FORCE)
+    set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=lld" CACHE STRING "" FORCE)
+    set(CMAKE_MODULE_LINKER_FLAGS "-fuse-ld=lld" CACHE STRING "" FORCE)
+endif()
+
 project(audio_player)
 
 #----------------------------------------------------------
@@ -13,14 +21,14 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # LTO优化
-option(ENABLE_LTO "Enable Link Time Optimization" ON)
+option(ENABLE_LTO "Enable Link Time Optimization" OFF)
 if(ENABLE_LTO)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-    add_compile_options(-flto=auto)
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto=auto")
+    set(CMAKE_POLICY_DEFAULT_CMP0069 NEW) # 确保LTO跨编译器兼容
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 
 #----------------------------------------------------------
 # FFmpeg跨平台编译
@@ -59,19 +67,41 @@ set(FFMPEG_BASE_ARGS
 	--enable-cross-compile
 )
 
-
 # 平台特定参数
-if(WIN32)
+if(WINDOWS)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=mingw32
         --cross-prefix=${TOOLCHAIN_PREFIX}-
         --arch=${CROSS_ARCH}
     )
 elseif(ANDROID)
+	# 架构映射表
+	set(ANDROID_ARCH_MAP
+		"armeabi-v7a=armv7a-linux-androideabi"
+		"arm64-v8a=aarch64-linux-android"
+		"x86_64=x86_64-linux-android"
+		"x86=i686-linux-android"
+	)
+	
+	# 解析架构参数
+	foreach(PAIR IN LISTS ANDROID_ARCH_MAP)
+		string(REPLACE "=" ";" PAIR_LIST ${PAIR})
+		list(GET PAIR_LIST 0 KEY)
+		list(GET PAIR_LIST 1 VALUE)
+		if("${ANDROID_ABI}" STREQUAL "${KEY}")
+			set(TOOLCHAIN_PREFIX "${VALUE}")
+			break()
+		endif()
+	endforeach()
+	set(ANDROID_NDK $ENV{ANDROID_NDK_ROOT})
+	set(ANDROID_TOOLCHAIN_ROOT ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64)
+    set(ANDROID_SYSROOT ${ANDROID_TOOLCHAIN_ROOT}/sysroot)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=android
         --arch=${CROSS_ARCH}
-        --sysroot=${ANDROID_NDK}/sysroot
+        --sysroot=${ANDROID_SYSROOT}
+		--cc=${ANDROID_TOOLCHAIN_ROOT}/bin/${TOOLCHAIN_PREFIX}${ANDROID_NATIVE_API_LEVEL}-clang
+		--cxx=${ANDROID_TOOLCHAIN_ROOT}/${TOOLCHAIN_PREFIX}${ANDROID_NATIVE_API_LEVEL}-clang++
     )
 	if(CMAKE_ANDROID_ARCH_ABI MATCHES "armeabi-v7a")
 		list(APPEND FFMPEG_BASE_ARGS
@@ -138,7 +168,7 @@ target_link_libraries(audio_player PRIVATE
 )
 
 # 平台特定链接
-if(WIN32)
+if(WINDOWS)
     target_link_libraries(audio_player PRIVATE
         ole32 ws2_32 secur32 bcrypt
     )
@@ -159,6 +189,16 @@ elseif(APPLE)
         ${AUDIO_TOOLBOX} ${CORE_FOUNDATION}
     )
 elseif(ANDROID)
+	add_link_options(
+        "-fuse-ld=lld"
+        "-B${ANDROID_TOOLCHAIN_ROOT}/bin"
+    )
+	if(ENABLE_LTO)
+        # 确保这些路径存在
+        message(STATUS "LLVM工具链路径: ${ANDROID_TOOLCHAIN_ROOT}/bin/")
+        set(CMAKE_AR "${ANDROID_TOOLCHAIN_ROOT}/bin/llvm-ar" CACHE FILEPATH "AR" FORCE)
+        set(CMAKE_RANLIB "${ANDROID_TOOLCHAIN_ROOT}/bin/llvm-ranlib" CACHE FILEPATH "RANLIB" FORCE)
+    endif()
     target_link_libraries(audio_player PRIVATE log)
 endif()
 

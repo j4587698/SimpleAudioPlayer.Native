@@ -87,7 +87,7 @@ elseif("${CROSS_TARGET}" STREQUAL "Android")
     # 工具链配置
     set(ANDROID_TOOLCHAIN_PREFIX "llvm")
     set(ANDROID_NATIVE_API_LEVEL 21 CACHE STRING "Android API level")
-    include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
+    #include(${ANDROID_NDK}/build/cmake/android.toolchain.cmake)
 
     # NEON优化
     if(CROSS_ARCH MATCHES "armeabi-v7a")

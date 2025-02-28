@@ -27,13 +27,12 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/win64 \
-          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
-          -DCROSS_TARGET=Windows \
-          -DCROSS_ARCH=x86_64-windows
+        cmake -B windows-x86_64 \
+          -DCMAKE_TOOLCHAIN_FILE=windows.toolchain.cmake \
+          -DCROSS_ARCH=x86_64
 
     - name: Build
-      run: cmake --build $BUILD_DIR/win64 --config Release -- -j1 VERBOSE=1
+      run: cmake --build $BUILD_DIR/win64 --config Release -- -j1
 
     - name: Package
       run: |
@@ -65,12 +64,11 @@ jobs:
     - name: Configure
       run: |
         cmake -B $BUILD_DIR/linux-${{ matrix.arch }} \
-          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
-          -DCROSS_TARGET=Linux \
+          -DCMAKE_TOOLCHAIN_FILE=linux.toolchain.cmake \
           -DCROSS_ARCH=${{ matrix.arch }}
 
     - name: Build
-      run: cmake --build $BUILD_DIR/linux-${{ matrix.arch }} -- -j1 VERBOSE=1
+      run: cmake --build $BUILD_DIR/linux-${{ matrix.arch }} -- -j1
 
     - name: Package
       run: |
@@ -135,12 +133,14 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/android-${{ matrix.abi }} \
-          -DCMAKE_TOOLCHAIN_FILE=cross_toolchain.cmake \
+        cmake -B android-${{ matrix.abi }} \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
           -DCROSS_TARGET=Android \
           -DCROSS_ARCH=${{ matrix.abi }} \
           -DANDROID_ABI=${{ matrix.abi }} \
-          -G Ninja
+          -DANDROID_PLATFORM=android-21 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DANDROID_NATIVE_API_LEVEL=21
 
     - name: Build
       run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}  -- -j1
