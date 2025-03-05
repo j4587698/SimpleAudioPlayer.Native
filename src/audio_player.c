@@ -4,8 +4,10 @@
 #include "miniaudio_ffmpeg.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
-// ×Ô¶¨Òåºó¶ËÊµÏÖ
+
+// è‡ªå®šä¹‰åŽç«¯å®žçŽ°
 static ma_result ma_decoding_backend_init__ffmpeg(void* pUserData, ma_read_proc onRead, ma_seek_proc onSeek, ma_tell_proc onTell, void* pReadSeekTellUserData, const ma_decoding_backend_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_data_source** ppBackend)
 {
     ma_result result;
@@ -41,50 +43,56 @@ static ma_decoding_backend_vtable g_ma_decoding_backend_vtable_ffmpeg = {
     ma_decoding_backend_uninit__ffmpeg
 };
 
-// ²¥·ÅÆ÷×´Ì¬½á¹¹
-typedef struct {
+// æ’­æ”¾å™¨çŠ¶æ€ç»“æž„
+struct AudioContext{
     ma_decoder decoder;
     ma_device device;
-    ma_bool8 is_playing;
-} AudioContext;
+	ma_mutex mutex;
+    bool device_initialized;
+} ;
 
-// Êý¾Ý»Øµ÷º¯Êý
+// æ•°æ®å›žè°ƒå‡½æ•°
 static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
 {
     AudioContext* ctx = (AudioContext*)pDevice->pUserData;
-    if (ctx && ctx->is_playing) {
+    if (ctx) {
+		ma_mutex_lock(&ctx->mutex);
         ma_data_source_read_pcm_frames(&ctx->decoder, pOutput, frameCount, NULL);
+		ma_mutex_unlock(&ctx->mutex);
     }
     (void)pInput;
 }
 
-MA_API AudioError audio_init(const char* filePath, AudioHandle* handle)
+ma_result ma_decoder_init_with_tell(ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek, ma_decoder_tell_proc onTell, void* pUserData, const ma_decoder_config* pConfig, ma_decoder* pDecoder)
 {
-    if (!filePath || !handle) return AUDIO_ERROR_INVALID_FILE;
+	ma_decoder_config config;
+	ma_result result;
 
-    AudioContext* ctx = (AudioContext*)calloc(1, sizeof(AudioContext));
-    if (!ctx) return AUDIO_ERROR_INIT_DECODER;
+	config = ma_decoder_config_init_copy(pConfig);
 
-    // ÅäÖÃ×Ô¶¨Òåºó¶Ë
-    const ma_decoding_backend_vtable* backends[] = { &g_ma_decoding_backend_vtable_ffmpeg };
+	result = ma_decoder__preinit(onRead, onSeek, onTell, pUserData, &config, pDecoder);
+	if (result != MA_SUCCESS) {
+		return result;
+	}
+
+	return ma_decoder_init__internal(onRead, onSeek, pUserData, &config, pDecoder);
+}
+
+MA_API AudioContext* audio_context_create(){
+	AudioContext* ctx = (AudioContext*)ma_malloc(sizeof(AudioContext), NULL);
+    if (!ctx) return NULL;
     
-    ma_decoder_config decoderConfig = ma_decoder_config_init_default();
-    decoderConfig.ppCustomBackendVTables = backends;
-    decoderConfig.customBackendCount = 1;
+    memset(ctx, 0, sizeof(AudioContext));
+    ma_mutex_init(&ctx->mutex);
+    return ctx;
+}
 
-    // ³õÊ¼»¯½âÂëÆ÷
-    ma_result result = ma_decoder_init_file(filePath, &decoderConfig, &ctx->decoder);
-    if (result != MA_SUCCESS) {
-        free(ctx);
-        return AUDIO_ERROR_INIT_DECODER;
-    }
+MA_API AudioError audio_init_device(AudioContext* ctx, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
+{
+    if (!ctx) return AUDIO_ERROR_INIT_DEVICE;
+	if (ctx->device_initialized) return AUDIO_SUCCESS;
 
-    // »ñÈ¡ÒôÆµ¸ñÊ½ÐÅÏ¢
-    ma_format format;
-    ma_uint32 channels, sampleRate;
-    ma_data_source_get_data_format(&ctx->decoder, &format, &channels, &sampleRate, NULL, 0);
-
-    // ÅäÖÃÒôÆµÉè±¸
+    // é…ç½®éŸ³é¢‘è®¾å¤‡
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.format   = format;
     deviceConfig.playback.channels = channels;
@@ -92,44 +100,138 @@ MA_API AudioError audio_init(const char* filePath, AudioHandle* handle)
     deviceConfig.dataCallback      = data_callback;
     deviceConfig.pUserData         = ctx;
 
-    result = ma_device_init(NULL, &deviceConfig, &ctx->device);
+    ma_result result = ma_device_init(NULL, &deviceConfig, &ctx->device);
     if (result != MA_SUCCESS) {
-        ma_decoder_uninit(&ctx->decoder);
-        free(ctx);
         return AUDIO_ERROR_INIT_DEVICE;
     }
 
-    ctx->is_playing = MA_FALSE;
-    *handle = ctx;
+    ctx->device_initialized = true;
     return AUDIO_SUCCESS;
 }
 
-MA_API void audio_play(AudioHandle handle)
-{
-    if (!handle) return;
 
-    AudioContext* ctx = (AudioContext*)handle;
+
+MA_API AudioError audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek, ma_decoder_tell_proc onTell, void* userdata)
+{
+    if (!ctx) return AUDIO_ERROR_INIT_DECODER;
+
+	ma_mutex_lock(&ctx->mutex);
+	if (ctx->decoder.pBackend != NULL){
+		ma_decoder_uninit(&ctx->decoder);
+	}
+
+    // é…ç½®è‡ªå®šä¹‰åŽç«¯
+    const ma_decoding_backend_vtable* backends[] = { &g_ma_decoding_backend_vtable_ffmpeg };
+    
+    ma_decoder_config decoderConfig = ma_decoder_config_init(ctx->device.playback.format, ctx->device.playback.channels, ctx->device.sampleRate);
+    decoderConfig.ppCustomBackendVTables = backends;
+    decoderConfig.customBackendCount = 1;
+	
+    // åˆå§‹åŒ–è§£ç å™¨
+    ma_result result = ma_decoder_init_with_tell(onRead, onSeek, onTell, userdata, &decoderConfig, &ctx->decoder);
+	
+	ma_uint64 totalFrames;
+	printf("result %d", ma_data_source_get_length_in_pcm_frames((ma_data_source*)ctx->decoder.pBackend, &totalFrames));
+	
+	ma_mutex_unlock(&ctx->mutex);
+	
+    return result != MA_SUCCESS ? AUDIO_ERROR_INIT_DECODER : AUDIO_SUCCESS;
+}
+
+MA_API AudioError audio_play(AudioContext* ctx)
+{
+    if (!ctx) return AUDIO_ERROR_MEMORY;
+
     if (ma_device_start(&ctx->device) == MA_SUCCESS) {
-        ctx->is_playing = MA_TRUE;
+        return AUDIO_SUCCESS;
     }
+	return AUDIO_ERROR_DEVICE_START;
 }
 
-MA_API void audio_stop(AudioHandle handle)
+MA_API AudioError audio_stop(AudioContext* ctx)
 {
-    if (!handle) return;
-
-    AudioContext* ctx = (AudioContext*)handle;
+    if (!ctx) return AUDIO_ERROR_MEMORY;
+	
     ma_device_stop(&ctx->device);
-    ctx->is_playing = MA_FALSE;
+    return AUDIO_SUCCESS;
 }
 
-MA_API void audio_cleanup(AudioHandle handle)
+MA_API void audio_cleanup(AudioContext* ctx)
 {
-    if (!handle) return;
-
-    AudioContext* ctx = (AudioContext*)handle;
+    if (!ctx) return;
+	
+	ma_mutex_lock(&ctx->mutex);
     ma_device_uninit(&ctx->device);
     ma_decoder_uninit(&ctx->decoder);
-    free(ctx);
+	
+	ma_mutex_unlock(&ctx->mutex);
+	ma_mutex_uninit(&ctx->mutex);
+    ma_free(ctx, NULL);
 }
 
+MA_API ma_result seek_to_time(AudioContext* ctx, const double timeInSec) {
+    if (timeInSec < 0) {
+        return MA_INVALID_ARGS;
+    }
+	
+    ma_uint64 target_frame = (ma_uint64)(timeInSec * ctx->decoder.outputSampleRate);
+	printf("timeInSec: %f target_frame: %d", timeInSec, target_frame);
+    return ma_decoder_seek_to_pcm_frame(&ctx->decoder, target_frame);
+}
+
+MA_API ma_result get_decoder(AudioContext* ctx, ma_decoder *decoder) {
+	if (ctx == NULL || decoder == NULL){
+		return MA_INVALID_ARGS;
+	}
+	
+	ma_mutex_lock(&ctx->mutex);
+    decoder = &ctx->decoder;
+    ma_mutex_unlock(&ctx->mutex);
+	
+	return MA_SUCCESS;
+}
+
+MA_API ma_result get_length_in_pcm_frames(AudioContext* ctx, ma_int64* frames){
+	if (ctx == NULL){
+		return MA_INVALID_ARGS;
+	}
+	
+	return ma_decoder_get_length_in_pcm_frames(&ctx->decoder, frames);
+}
+
+MA_API ma_result get_cursor_in_pcm_frames(AudioContext* ctx, ma_int64* frames){
+	if (ctx == NULL){
+		return MA_INVALID_ARGS;
+	}
+	
+	return ma_decoder_get_cursor_in_pcm_frames(&ctx->decoder, frames);
+}
+
+MA_API ma_result get_time(AudioContext* ctx, double* time){
+	if (ctx == NULL){
+		return MA_INVALID_ARGS;
+	}
+    ma_uint64 cursor;
+    ma_result result = ma_decoder_get_cursor_in_pcm_frames(&ctx->decoder, &cursor);
+    if (result != MA_SUCCESS) {
+		return result;
+	}
+	
+    *time = (double)cursor / ctx->decoder.outputSampleRate;
+    return MA_SUCCESS;
+}
+
+MA_API ma_result get_duration(AudioContext* ctx, double* duration){
+	if (ctx == NULL){
+		return MA_INVALID_ARGS;
+	}
+    ma_uint64 cursor;
+    ma_result result = ma_decoder_get_length_in_pcm_frames(&ctx->decoder, &cursor);
+	printf("frames is %d", cursor);
+    if (result != MA_SUCCESS) {
+		return result;
+	}
+	
+    *duration = (double)cursor / ctx->decoder.outputSampleRate;
+    return MA_SUCCESS;
+}
