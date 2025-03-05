@@ -205,7 +205,7 @@ elseif(APPLE)
 		add_definitions(-DMA_NO_RUNTIME_LINKING)
 
 		# Use Objective-C for audio_player.c file.
-		set_source_files_properties(audio_player.c PROPERTIES LANGUAGE OBJC)
+		set_source_files_properties(src/audio_player.c PROPERTIES LANGUAGE OBJC)
 
 		# Link with frameworks
 		target_link_libraries(audio_player PRIVATE
