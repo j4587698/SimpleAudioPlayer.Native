@@ -11,11 +11,9 @@ execute_process(
 
 # 平台参数配置
 if("${APPLE_PLATFORM}" STREQUAL "MACOS")
-    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 elseif("${APPLE_PLATFORM}" STREQUAL "IOS")
-    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architectures")
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "Minimum iOS version")
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum iOS version")
     set(SDK_PATH ${SDK_PATH}/iPhoneOS.sdk)  # 修正为iOS SDK路径
 endif()
 

@@ -32,7 +32,7 @@ jobs:
           -DCROSS_ARCH=x86_64
 
     - name: Build
-      run: cmake --build $BUILD_DIR/win64 --config Release -- -j1
+      run: cmake --build $BUILD_DIR/win64 --config Release -- -j$(nproc)
 
     - name: Package
       run: |
@@ -68,7 +68,7 @@ jobs:
           -DCROSS_ARCH=${{ matrix.arch }}
 
     - name: Build
-      run: cmake --build $BUILD_DIR/linux-${{ matrix.arch }} -- -j1
+      run: cmake --build $BUILD_DIR/linux-${{ matrix.arch }} -- -j$(nproc)
 
     - name: Package
       run: |
@@ -97,11 +97,11 @@ jobs:
       run: |
         cmake -B $BUILD_DIR/macos \
           -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
-          -DCROSS_TARGET=macOS \
-          -DCMAKE_OSX_ARCHITECTURES="x86_64"
+          -DAPPLE_PLATFORM=MACOS \
+          -DCMAKE_OSX_ARCHITECTURES=x86_64
 
     - name: Build
-      run: cmake --build $BUILD_DIR/macos --config Release -- -j1 VERBOSE=1
+      run: cmake --build $BUILD_DIR/macos --config Release -- -j$(nproc)
 
     - name: Create Universal Binary
       run: |
@@ -143,7 +143,7 @@ jobs:
           -DANDROID_NATIVE_API_LEVEL=21
 
     - name: Build
-      run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}  -- -j1
+      run: cmake --build $BUILD_DIR/android-${{ matrix.abi }}  -- -j$(nproc)
 
     - name: Package
       run: |
