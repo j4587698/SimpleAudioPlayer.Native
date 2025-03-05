@@ -143,7 +143,7 @@ jobs:
       - name: Build
         run: |
           # 使用tee命令捕获完整构建日志
-          cmake --build $BUILD_DIR/ios --config Release -- VERBOSE=1 2>&1 | tee build.log || true
+          cmake --build $BUILD_DIR/ios -G Xcode --config Release -- VERBOSE=1 2>&1 | tee build.log || true
 
       - name: Create Universal Binary
         run: |

@@ -50,7 +50,6 @@ elseif(APPLE_PLATFORM STREQUAL "IOS")
     set(CMAKE_SYSTEM_PROCESSOR "arm64")
     set(CMAKE_OSX_ARCHITECTURES "${APPLE_ARCH}")
     set(VERSION_FLAG_PREFIX "iphoneos")
-    enable_language(OBJC)
 endif()
 
 # 工具链配置
