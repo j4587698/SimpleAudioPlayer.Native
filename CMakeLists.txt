@@ -217,6 +217,17 @@ elseif(APPLE)
 				"-lpthread"
 				"-lm"
 		)
+
+		set_target_properties(audio_player PROPERTIES
+				FRAMEWORK TRUE
+				FRAMEWORK_VERSION A
+				MACOSX_FRAMEWORK_IDENTIFIER com.jvxiang.audio_player
+				MACOSX_FRAMEWORK_SHORT_VERSION_STRING "1.0"
+				MACOSX_FRAMEWORK_BUNDLE_VERSION "1"
+				XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+				XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+				XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
+		)
 	endif ()
 
 elseif(ANDROID)
@@ -258,10 +269,20 @@ add_dependencies(audio_player ffmpeg)
 #----------------------------------------------------------
 # 安装规则
 #----------------------------------------------------------
-install(TARGETS audio_player
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    RUNTIME DESTINATION bin
-)
+if (APPLE_PLATFORM STREQUAL "IOS")
+	install(TARGETS audio_player
+			LIBRARY DESTINATION lib
+			ARCHIVE DESTINATION lib
+			RUNTIME DESTINATION bin
+			FRAMEWORK DESTINATION lib
+	)
+else ()
+	install(TARGETS audio_player
+			LIBRARY DESTINATION lib
+			ARCHIVE DESTINATION lib
+			RUNTIME DESTINATION bin
+	)
+endif ()
+
 
 install(DIRECTORY include/ DESTINATION include)
