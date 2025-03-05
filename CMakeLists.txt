@@ -53,7 +53,7 @@ set(FFMPEG_BASE_ARGS
     --disable-zlib
     --disable-bzlib
     --disable-lzma
-	--disable-asm
+	#--disable-asm
 	--disable-vulkan
     --disable-everything
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
@@ -114,6 +114,8 @@ elseif(APPLE)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=darwin
         --sysroot=${CMAKE_OSX_SYSROOT}
+		--cc=${CMAKE_C_FLAGS}
+		--cxx=${CMAKE_CXX_FLAGS}
     )
     if(IOS)
         list(APPEND FFMPEG_BASE_ARGS --disable-asm)
@@ -123,6 +125,7 @@ elseif(LINUX)
 		--arch=${CROSS_ARCH}
 		--cross-prefix=${TOOLCHAIN_PREFIX}-
 		--target-os=linux
+		--disable-x86asm
 	)
 	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS
@@ -184,10 +187,7 @@ elseif(LINUX)
         m
     )
 elseif(APPLE)
-    find_library(AUDIO_TOOLBOX AudioToolbox)
-    find_library(CORE_FOUNDATION CoreFoundation)
     target_link_libraries(audio_player PRIVATE
-        ${AUDIO_TOOLBOX} ${CORE_FOUNDATION} 
 		"-framework CoreFoundation"
         "-framework CoreAudio"
         "-framework AudioToolbox"
