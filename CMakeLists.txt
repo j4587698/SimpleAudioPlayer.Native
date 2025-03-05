@@ -203,7 +203,7 @@ elseif(APPLE)
 		)
 	else ()
 		add_definitions(-DMA_NO_RUNTIME_LINKING)
-
+		project(audio_player LANGUAGES C OBJC)
 		# Use Objective-C for audio_player.c file.
 		set_source_files_properties(src/audio_player.c PROPERTIES LANGUAGE OBJC)
 
