@@ -107,7 +107,7 @@ jobs:
 
     - name: Create Universal Binary
       run: |
-        mkdir -p $ARTIFACT_DIR/macos \
+        mkdir -p $ARTIFACT_DIR/macos 
         lipo -create -output $ARTIFACT_DIR/macos/libaudio_player.dylib \
           $BUILD_DIR/macos/lib/*.dylib
 
