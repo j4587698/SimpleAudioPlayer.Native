@@ -206,7 +206,7 @@ elseif(APPLE)
 		set_source_files_properties(audio_player.c PROPERTIES LANGUAGE OBJCXX)
 
 		# Link with frameworks
-		target_link_libraries(audio_player
+		target_link_libraries(audio_player PRIVATE
 				"-framework CoreFoundation"
 				"-framework CoreAudio"
 				"-framework AudioToolbox"
