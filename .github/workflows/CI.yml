@@ -42,7 +42,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: windows-x64-binaries
-        path: $ARTIFACT_DIR/win64/libaudio_player.dll
+        path: ${{env.ARTIFACT_DIR}}/win64/libaudio_player.dll
 
   linux:
     name: Linux
@@ -79,7 +79,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: linux-${{ matrix.arch }}-binaries
-        path: $ARTIFACT_DIR/linux-${{ matrix.arch }}/libaudio_player.so
+        path: ${{env.ARTIFACT_DIR}}/linux-${{ matrix.arch }}/libaudio_player.so
 
   macos:
     name: macOS Universal
@@ -118,7 +118,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: macos-${{ matrix.arch }}-universal-binaries
-        path: $ARTIFACT_DIR/macos-${{ matrix.arch }}/libaudio_player.dylib
+        path: ${{env.ARTIFACT_DIR}}/macos-${{ matrix.arch }}/libaudio_player.dylib
 
   ios:
     name: ios
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ios
-          path: $ARTIFACT_DIR/ios/libaudio_player.dylib
+          path: ${{env.ARTIFACT_DIR}}/ios/libaudio_player.dylib
 
   android:
     name: Android
@@ -196,5 +196,5 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: android-${{ matrix.abi }}-binaries
-        path: $ARTIFACT_DIR/android-${{ matrix.abi }}/libaudio_player.so
+        path: ${{env.ARTIFACT_DIR}}/android-${{ matrix.abi }}/libaudio_player.so
 
