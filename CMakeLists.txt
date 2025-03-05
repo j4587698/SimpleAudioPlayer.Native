@@ -53,7 +53,7 @@ set(FFMPEG_BASE_ARGS
     --disable-zlib
     --disable-bzlib
     --disable-lzma
-	#--disable-asm
+	--disable-asm
 	--disable-vulkan
     --disable-everything
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
@@ -117,15 +117,11 @@ elseif(APPLE)
 		--cc=${CMAKE_C_FLAGS}
 		--cxx=${CMAKE_CXX_FLAGS}
     )
-    if(IOS)
-        list(APPEND FFMPEG_BASE_ARGS --disable-asm)
-    endif()
 elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS
 		--arch=${CROSS_ARCH}
 		--cross-prefix=${TOOLCHAIN_PREFIX}-
 		--target-os=linux
-		--disable-x86asm
 	)
 	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS
