@@ -112,6 +112,9 @@ set(CMAKE_LINKER "${LD_PATH}" CACHE FILEPATH "链接器" FORCE)
 
 # iOS特殊链接参数
 if(APPLE_PLATFORM STREQUAL "IOS")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fembed-bitcode")
+    set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fembed-bitcode")
+    set(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE "YES")
     string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
             " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
             " -fembed-bitcode"
