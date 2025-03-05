@@ -66,6 +66,16 @@ set(FFMPEG_BASE_ARGS
 	--extra-cflags=-fPIC
 	--extra-ldflags=-fPIC
 	--enable-cross-compile
+	--disable-avdevice
+	--disable-swscale
+	--disable-postproc
+	--disable-avfilter
+	--disable-hwaccels
+	--disable-bsfs
+	--disable-indevs
+	--disable-outdevs
+	--disable-ffplay
+	--disable-ffprobe
 )
 
 # 平台特定参数
