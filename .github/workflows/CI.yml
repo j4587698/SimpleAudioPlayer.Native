@@ -98,7 +98,7 @@ jobs:
         cmake -B $BUILD_DIR/macos \
           -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
           -DAPPLE_PLATFORM=MACOS \
-          -DCMAKE_OSX_ARCHITECTURES=x86_64
+          -DAPPLE_ARCH=x86_64
 
     - name: Build
       run: cmake --build $BUILD_DIR/macos --config Release --

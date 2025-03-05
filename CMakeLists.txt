@@ -116,6 +116,9 @@ elseif(APPLE)
         --sysroot=${CMAKE_OSX_SYSROOT}
 		--cc=${CMAKE_C_FLAGS}
 		--cxx=${CMAKE_CXX_FLAGS}
+		--enable-videotoolbox
+		--enable-coreimage
+		--enable-securetransport
     )
 elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS
