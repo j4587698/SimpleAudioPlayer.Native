@@ -74,6 +74,7 @@ jobs:
       run: |
         mkdir -p $ARTIFACT_DIR/linux-${{ matrix.arch }}
         cp $BUILD_DIR/linux-${{ matrix.arch }}/lib/*.so $ARTIFACT_DIR/linux-${{ matrix.arch }}/
+        ls $ARTIFACT_DIR/linux-${{ matrix.arch }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -98,7 +99,7 @@ jobs:
         cmake -B $BUILD_DIR/macos \
           -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
           -DAPPLE_PLATFORM=MACOS \
-          -DAPPLE_ARCH=x86_64
+          -DAPPLE_ARCH=arm64
 
     - name: Build
       run: |
