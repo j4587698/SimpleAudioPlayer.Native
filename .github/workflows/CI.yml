@@ -148,7 +148,7 @@ jobs:
           # 自动定位并打印FFmpeg配置日志
           if [ -f "$BUILD_DIR/ios/ffmpeg/src/ffmpeg-build/ffbuild/config.log" ]; then
           echo "↓↓↓↓↓↓ FFmpeg config.log ↓↓↓↓↓↓"
-          cat $BUILD_DIR/ios/ffmpeg/src/ffmpeg-build/ffbuild/config.log
+          tail -100 $BUILD_DIR/ios/ffmpeg/src/ffmpeg-build/ffbuild/config.log
           echo "↑↑↑↑↑↑ FFmpeg config.log ↑↑↑↑↑↑"
           else
           echo "⚠️ config.log not found in expected location"
