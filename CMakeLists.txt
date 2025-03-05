@@ -202,6 +202,8 @@ elseif(APPLE)
 				CODE_SIGN_IDENTITY "-"
 		)
 	else ()
+		add_definitions(-DMA_NO_RUNTIME_LINKING)
+
 		# Use Objective-C for audio_player.c file.
 		set_source_files_properties(audio_player.c PROPERTIES LANGUAGE OBJC)
 
@@ -219,7 +221,7 @@ elseif(APPLE)
 		set_target_properties(audio_player PROPERTIES
 				FRAMEWORK TRUE
 				FRAMEWORK_VERSION A
-				MACOSX_FRAMEWORK_IDENTIFIER com.jvxiang.audio_player
+				MACOSX_FRAMEWORK_IDENTIFIER com.mackron.miniaudio
 				MACOSX_FRAMEWORK_SHORT_VERSION_STRING "1.0"
 				MACOSX_FRAMEWORK_BUNDLE_VERSION "1"
 				XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
@@ -267,18 +269,10 @@ add_dependencies(audio_player ffmpeg)
 #----------------------------------------------------------
 # 安装规则
 #----------------------------------------------------------
-if(APPLE_PLATFORM STREQUAL "IOS")
-	# 添加 Framework 安装路径
-	install(TARGETS audio_player
-			FRAMEWORK DESTINATION Frameworks  # 关键修复
-	)
-else()
-	# 其他平台使用普通动态库
-	install(TARGETS audio_player
-			LIBRARY DESTINATION lib
-			ARCHIVE DESTINATION lib
-			RUNTIME DESTINATION bin
-	)
-endif()
+install(TARGETS audio_player
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+)
 
 install(DIRECTORY include/ DESTINATION include)

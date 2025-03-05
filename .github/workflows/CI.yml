@@ -144,15 +144,6 @@ jobs:
         run: |
           # 使用tee命令捕获完整构建日志
           cmake --build $BUILD_DIR/ios --config Release -- VERBOSE=1 2>&1 | tee build.log || true
-          
-          # 自动定位并打印FFmpeg配置日志
-          if [ -f "$BUILD_DIR/ios/ffmpeg/src/ffmpeg-build/ffbuild/config.log" ]; then
-          echo "↓↓↓↓↓↓ FFmpeg config.log ↓↓↓↓↓↓"
-          cat $BUILD_DIR/ios/ffmpeg/src/ffmpeg-build/ffbuild/config.log
-          echo "↑↑↑↑↑↑ FFmpeg config.log ↑↑↑↑↑↑"
-          else
-          echo "⚠️ config.log not found in expected location"
-          fi
 
       - name: Create Universal Binary
         run: |
