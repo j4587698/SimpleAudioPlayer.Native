@@ -42,7 +42,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: windows-x64-binaries
-        path: $ARTIFACT_DIR/win64//*.dll
+        path: $ARTIFACT_DIR/win64/libaudio_player.dll
 
   linux:
     name: Linux
@@ -79,11 +79,14 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: linux-${{ matrix.arch }}-binaries
-        path: $ARTIFACT_DIR/linux-${{ matrix.arch }}//*.so
+        path: $ARTIFACT_DIR/linux-${{ matrix.arch }}/libaudio_player.so
 
   macos:
     name: macOS Universal
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [ arm64, x86_64 ]
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -96,26 +99,62 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/macos \
+        cmake -B $BUILD_DIR/macos-${{ matrix.arch }} \
           -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
           -DAPPLE_PLATFORM=MACOS \
-          -DAPPLE_ARCH=arm64
+          -DAPPLE_ARCH=${{ matrix.arch }}
 
     - name: Build
       run: |
         # 使用tee命令捕获完整构建日志
-        cmake --build $BUILD_DIR/macos --config Release -- VERBOSE=1 2>&1 | tee build.log || true
+        cmake --build $BUILD_DIR/macos-${{ matrix.arch }} --config Release -- VERBOSE=1 2>&1 | tee build.log || true
 
     - name: Create Universal Binary
       run: |
-        mkdir -p $ARTIFACT_DIR/macos 
-        lipo -create -output $ARTIFACT_DIR/macos/libaudio_player.dylib \
-          $BUILD_DIR/macos/lib/*.dylib
+        mkdir -p $ARTIFACT_DIR/macos-${{ matrix.arch }}
+        lipo -create -output $ARTIFACT_DIR/macos-${{ matrix.arch }}/libaudio_player.dylib \
+          $BUILD_DIR/macos-${{ matrix.arch }}/lib/*.dylib
 
     - uses: actions/upload-artifact@v4
       with:
-        name: macos-universal-binaries
-        path: $ARTIFACT_DIR/macos//*.dylib
+        name: macos-${{ matrix.arch }}-universal-binaries
+        path: $ARTIFACT_DIR/macos-${{ matrix.arch }}/libaudio_player.dylib
+
+  ios:
+    name: ios
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app
+          sudo xcodebuild -license accept
+          xcrun --show-sdk-path  # 验证 SDK 路径
+
+      - name: Configure
+        run: |
+          cmake -B $BUILD_DIR/ios \
+            -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
+            -DAPPLE_PLATFORM=IOS \
+            -DAPPLE_ARCH=arm64
+
+      - name: Build
+        run: |
+          # 使用tee命令捕获完整构建日志
+          cmake --build $BUILD_DIR/ios --config Release -- VERBOSE=1 2>&1 | tee build.log || true
+
+      - name: Create Universal Binary
+        run: |
+          mkdir -p $ARTIFACT_DIR/ios 
+          lipo -create -output $ARTIFACT_DIR/ios/libaudio_player.dylib \
+            $BUILD_DIR/ios/lib/*.dylib
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: $ARTIFACT_DIR/ios/libaudio_player.dylib
 
   android:
     name: Android
@@ -157,5 +196,5 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: android-${{ matrix.abi }}-binaries
-        path: $ARTIFACT_DIR/android-${{ matrix.abi }}/*.so
+        path: $ARTIFACT_DIR/android-${{ matrix.abi }}/libaudio_player.so
 
