@@ -268,12 +268,6 @@ add_dependencies(audio_player ffmpeg)
 # 安装规则
 #----------------------------------------------------------
 if(APPLE_PLATFORM STREQUAL "IOS")
-	# 明确声明构建为 Framework
-	set_target_properties(audio_player PROPERTIES
-			FRAMEWORK TRUE
-			FRAMEWORK_VERSION A
-			MACOSX_FRAMEWORK_IDENTIFIER com.example.audio
-	)
 	# 添加 Framework 安装路径
 	install(TARGETS audio_player
 			FRAMEWORK DESTINATION Frameworks  # 关键修复
