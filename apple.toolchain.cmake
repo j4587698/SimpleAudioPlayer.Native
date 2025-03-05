@@ -45,9 +45,11 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "${DEFAULT_DEPLOYMENT_TARGET}" CACHE STRING "最
 if(APPLE_PLATFORM STREQUAL "MACOS")
     set(CMAKE_SYSTEM_PROCESSOR "${APPLE_ARCH}")
     set(CMAKE_OSX_ARCHITECTURES "${APPLE_ARCH}")
+    set(VERSION_FLAG_PREFIX "macosx")
 elseif(APPLE_PLATFORM STREQUAL "IOS")
     set(CMAKE_SYSTEM_PROCESSOR "aarch64")
     set(CMAKE_OSX_ARCHITECTURES "${APPLE_ARCH}")
+    set(VERSION_FLAG_PREFIX "iphoneos")
 endif()
 
 # 工具链配置
@@ -59,12 +61,12 @@ set(CMAKE_RANLIB "/usr/bin/ranlib")
 # 编译标志配置
 string(APPEND CMAKE_C_FLAGS_INIT
         " -isysroot \"${CMAKE_OSX_SYSROOT}\""
-        " -m${APPLE_PLATFORM}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+        " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
 string(APPEND CMAKE_CXX_FLAGS_INIT
         " -isysroot \"${CMAKE_OSX_SYSROOT}\""
-        " -m${APPLE_PLATFORM}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+        "  -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}""
 )
 
 # iOS特殊处理
