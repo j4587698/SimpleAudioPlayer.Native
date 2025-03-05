@@ -101,9 +101,7 @@ jobs:
           -DAPPLE_ARCH=x86_64
 
     - name: Build
-      run: |
-        # 使用tee命令捕获完整构建日志
-        cmake --build $BUILD_DIR --config Release -- VERBOSE=1 2>&1 | tee build.log
+      run: cmake --build $BUILD_DIR --config Release -- VERBOSE=1 2>&1 | tee build.log
 
     - name: Create Universal Binary
       run: |
