@@ -187,19 +187,47 @@ elseif(LINUX)
         m
     )
 elseif(APPLE)
-    target_link_libraries(audio_player PRIVATE
-		"-framework CoreFoundation"
-        "-framework CoreAudio"
-        "-framework AudioToolbox"
-        "-lpthread"
-        "-lm"
-    )
-	set_target_properties(audio_player PROPERTIES
-        # Enable code signing for macOS (ad-hoc signing)
-        CODE_SIGNING_REQUIRED TRUE
-        CODE_SIGNING_ALLOWED TRUE
-        CODE_SIGN_IDENTITY "-"
-    )
+	if (APPLE_PLATFORM STREQUAL "MACOS")
+		target_link_libraries(audio_player PRIVATE
+				"-framework CoreFoundation"
+				"-framework CoreAudio"
+				"-framework AudioToolbox"
+				"-lpthread"
+				"-lm"
+		)
+		set_target_properties(audio_player PROPERTIES
+				# Enable code signing for macOS (ad-hoc signing)
+				CODE_SIGNING_REQUIRED TRUE
+				CODE_SIGNING_ALLOWED TRUE
+				CODE_SIGN_IDENTITY "-"
+		)
+	else ()
+		# Use Objective-C++ for audio_player.c file.
+		set_source_files_properties(audio_player.c PROPERTIES LANGUAGE OBJCXX)
+
+		# Link with frameworks
+		target_link_libraries(audio_player
+				"-framework CoreFoundation"
+				"-framework CoreAudio"
+				"-framework AudioToolbox"
+				"-framework AVFoundation"
+				"-lpthread"
+				"-lm"
+		)
+
+		# Mark the miniaudio target as a framework.
+		set_target_properties(audio_player PROPERTIES
+				FRAMEWORK TRUE
+				FRAMEWORK_VERSION A
+				MACOSX_FRAMEWORK_IDENTIFIER com.mackron.miniaudio
+				MACOSX_FRAMEWORK_SHORT_VERSION_STRING "1.0"
+				MACOSX_FRAMEWORK_BUNDLE_VERSION "1"
+				XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY ""
+				XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO"
+				XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO"
+		)
+	endif ()
+
 elseif(ANDROID)
 	add_link_options(
         "-fuse-ld=lld"
