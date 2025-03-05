@@ -66,7 +66,7 @@ string(APPEND CMAKE_C_FLAGS_INIT
 
 string(APPEND CMAKE_CXX_FLAGS_INIT
         " -isysroot \"${CMAKE_OSX_SYSROOT}\""
-        "  -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}""
+        " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
 # iOS特殊处理
