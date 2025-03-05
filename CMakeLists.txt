@@ -116,9 +116,6 @@ elseif(APPLE)
         --sysroot=${CMAKE_OSX_SYSROOT}
 		--cc=clang
 		--cxx=clang++
-		--enable-videotoolbox
-		--enable-coreimage
-		--enable-securetransport
 		--arch=${APPLE_ARCH}
 		--extra-cflags=${CMAKE_C_FLAGS}
 		--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
