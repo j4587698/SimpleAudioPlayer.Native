@@ -223,9 +223,15 @@ target_compile_definitions(audio_player PRIVATE
 
 # 符号精简
 if(NOT MSVC)
-    add_custom_command(TARGET audio_player POST_BUILD
-        COMMAND ${CMAKE_STRIP} -S --strip-unneeded $<TARGET_FILE:audio_player>
+	if (APPLE)
+		add_custom_command(TARGET audio_player POST_BUILD
+			COMMAND ${CMAKE_STRIP} -S -x $<TARGET_FILE:audio_player>
+	)
+	else ()
+    	add_custom_command(TARGET audio_player POST_BUILD
+        	COMMAND ${CMAKE_STRIP} -S --strip-unneeded $<TARGET_FILE:audio_player>
     )
+	endif ()
 endif()
 
 add_dependencies(audio_player ffmpeg)
