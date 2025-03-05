@@ -81,8 +81,38 @@ if(APPLE_PLATFORM STREQUAL "IOS")
     )
 endif()
 
+# 动态获取iOS链接器路径
+if(APPLE_PLATFORM STREQUAL "IOS")
+    execute_process(
+            COMMAND xcrun --sdk iphoneos --find ld
+            OUTPUT_VARIABLE IOS_LD_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    set(CMAKE_LINKER "${IOS_LD_PATH}" CACHE FILEPATH "iOS专用链接器" FORCE)
+endif()
+
+string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
+        " -isysroot \"${CMAKE_OSX_SYSROOT}\""
+        " -target ${APPLE_ARCH}-apple-${VERSION_FLAG_PREFIX}${CMAKE_OSX_DEPLOYMENT_TARGET}"
+)
+
+# iOS特殊链接参数
+if(APPLE_PLATFORM STREQUAL "IOS")
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
+            " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            " -fembed-bitcode"
+            " -Xlinker -bitcode_verify"  # 验证Bitcode完整性
+    )
+endif()
+
 # 路径查找策略
 set(CMAKE_FIND_ROOT_PATH "${CMAKE_OSX_SYSROOT}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+set(CMAKE_LINK_SEARCH_START_STATIC ON)
+set(CMAKE_LINK_SEARCH_END_STATIC ON)
+if(APPLE_PLATFORM STREQUAL "IOS")
+    set(CMAKE_LINK_DEPENDS_NO_SHARED ON)  # iOS应禁止链接共享库依赖
+endif()
