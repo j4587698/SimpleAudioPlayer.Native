@@ -103,7 +103,7 @@ jobs:
     - name: Build
       run: |
         # 使用tee命令捕获完整构建日志
-        cmake --build $BUILD_DIR --config Release -- VERBOSE=1 2>&1 | tee build.log || true
+        cmake --build $BUILD_DIR --config Release -- VERBOSE=1 2>&1 | tee build.log
         
         # 自动定位并打印FFmpeg配置日志
         if [ -f "$BUILD_DIR/ffmpeg/src/ffmpeg-build/ffbuild/config.log" ]; then
