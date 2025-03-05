@@ -42,7 +42,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: windows-x64-binaries
-        path: $ARTIFACT_DIR/win64/
+        path: $ARTIFACT_DIR/win64//*.dll
 
   linux:
     name: Linux
@@ -79,7 +79,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: linux-${{ matrix.arch }}-binaries
-        path: $ARTIFACT_DIR/linux-${{ matrix.arch }}/
+        path: $ARTIFACT_DIR/linux-${{ matrix.arch }}//*.so
 
   macos:
     name: macOS Universal
@@ -115,7 +115,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: macos-universal-binaries
-        path: $ARTIFACT_DIR/macos/
+        path: $ARTIFACT_DIR/macos//*.dylib
 
   android:
     name: Android
@@ -157,5 +157,5 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: android-${{ matrix.abi }}-binaries
-        path: $ARTIFACT_DIR/android-${{ matrix.abi }}/
+        path: $ARTIFACT_DIR/android-${{ matrix.abi }}/*.so
 
