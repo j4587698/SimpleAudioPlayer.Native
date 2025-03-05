@@ -47,7 +47,7 @@ if(APPLE_PLATFORM STREQUAL "MACOS")
     set(CMAKE_OSX_ARCHITECTURES "${APPLE_ARCH}")
     set(VERSION_FLAG_PREFIX "macosx")
 elseif(APPLE_PLATFORM STREQUAL "IOS")
-    set(CMAKE_SYSTEM_PROCESSOR "aarch64")
+    set(CMAKE_SYSTEM_PROCESSOR "arm64")
     set(CMAKE_OSX_ARCHITECTURES "${APPLE_ARCH}")
     set(VERSION_FLAG_PREFIX "iphoneos")
 endif()
@@ -76,11 +76,11 @@ set(CMAKE_AR "${AR_PATH}" CACHE FILEPATH "归档工具" FORCE)
 
 # ranlib配置
 execute_process(
-        COMMAND xcrun --sdk ${SDK_NAME} --find ranlib
+        COMMAND xcrun --sdk ${APPLE_SDK_NAME} --find ranlib
         OUTPUT_VARIABLE RANLIB_PATH
         OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-set(CMAKE_RANLIB "${ANLIB_PATH}" CACHE FILEPATH "库索引工具" FORCE)
+set(CMAKE_RANLIB "${RANLIB_PATH}" CACHE FILEPATH "库索引工具" FORCE)
 
 # 编译标志配置
 string(APPEND CMAKE_C_FLAGS_INIT
@@ -104,14 +104,20 @@ if(APPLE_PLATFORM STREQUAL "IOS")
 endif()
 
 execute_process(
-        COMMAND xcrun --sdk --sdk ${SDK_NAME} --find ld
+        COMMAND xcrun --sdk ${SDK_NAME} --find ld
         OUTPUT_VARIABLE LD_PATH
         OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 set(CMAKE_LINKER "${LD_PATH}" CACHE FILEPATH "链接器" FORCE)
 
+if(APPLE_PLATFORM STREQUAL "MACOS")
+    set(TARGET_TRIPLE "${APPLE_ARCH}-apple-macos${CMAKE_OSX_DEPLOYMENT_TARGET}")
+elseif(APPLE_PLATFORM STREQUAL "IOS")
+    set(TARGET_TRIPLE "${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}")
+endif()
+
 string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
-        " -target ${APPLE_ARCH}-apple-${VERSION_FLAG_PREFIX}${CMAKE_OSX_DEPLOYMENT_TARGET}"
+        " -target ${TARGET_TRIPLE}"
 )
 
 # iOS特殊链接参数
@@ -119,7 +125,7 @@ if(APPLE_PLATFORM STREQUAL "IOS")
     string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
             " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
             " -fembed-bitcode"
-            " -Xlinker -bitcode_verify"  # 验证Bitcode完整性
+            " -Xlinker -bitcode_verify -bitcode_bundle"  # 验证Bitcode完整性
     )
 endif()
 
