@@ -53,19 +53,41 @@ elseif(APPLE_PLATFORM STREQUAL "IOS")
 endif()
 
 # 工具链配置
-set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
-set(CMAKE_AR "/usr/bin/ar")
-set(CMAKE_RANLIB "/usr/bin/ranlib")
+execute_process(
+        COMMAND xcrun --sdk ${APPLE_SDK_NAME} --find clang
+        OUTPUT_VARIABLE CLANG_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(CMAKE_C_COMPILER "${CLANG_PATH}" CACHE STRING "C编译器" FORCE)
+
+execute_process(
+        COMMAND xcrun --sdk ${APPLE_SDK_NAME} --find clang++
+        OUTPUT_VARIABLE CLANGXX_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(CMAKE_CXX_COMPILER "${CLANGXX_PATH}" CACHE STRING "C++编译器" FORCE)
+# ar配置
+execute_process(
+        COMMAND xcrun --sdk ${APPLE_SDK_NAME} --find ar
+        OUTPUT_VARIABLE AR_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(CMAKE_AR "${AR_PATH}" CACHE FILEPATH "归档工具" FORCE)
+
+# ranlib配置
+execute_process(
+        COMMAND xcrun --sdk ${SDK_NAME} --find ranlib
+        OUTPUT_VARIABLE RANLIB_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(CMAKE_RANLIB "${ANLIB_PATH}" CACHE FILEPATH "库索引工具" FORCE)
 
 # 编译标志配置
 string(APPEND CMAKE_C_FLAGS_INIT
-        " -isysroot \"${CMAKE_OSX_SYSROOT}\""
         " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
 string(APPEND CMAKE_CXX_FLAGS_INIT
-        " -isysroot \"${CMAKE_OSX_SYSROOT}\""
         " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
@@ -81,18 +103,14 @@ if(APPLE_PLATFORM STREQUAL "IOS")
     )
 endif()
 
-# 动态获取iOS链接器路径
-if(APPLE_PLATFORM STREQUAL "IOS")
-    execute_process(
-            COMMAND xcrun --sdk iphoneos --find ld
-            OUTPUT_VARIABLE IOS_LD_PATH
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    set(CMAKE_LINKER "${IOS_LD_PATH}" CACHE FILEPATH "iOS专用链接器" FORCE)
-endif()
+execute_process(
+        COMMAND xcrun --sdk --sdk ${SDK_NAME} --find ld
+        OUTPUT_VARIABLE LD_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(CMAKE_LINKER "${LD_PATH}" CACHE FILEPATH "链接器" FORCE)
 
 string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
-        " -isysroot \"${CMAKE_OSX_SYSROOT}\""
         " -target ${APPLE_ARCH}-apple-${VERSION_FLAG_PREFIX}${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
