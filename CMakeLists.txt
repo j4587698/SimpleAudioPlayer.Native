@@ -66,16 +66,6 @@ set(FFMPEG_BASE_ARGS
 	--extra-cflags=-fPIC
 	--extra-ldflags=-fPIC
 	--enable-cross-compile
-	--disable-avdevice
-	--disable-swscale
-	--disable-postproc
-	--disable-avfilter
-	--disable-hwaccels
-	--disable-bsfs
-	--disable-indevs
-	--disable-outdevs
-	--disable-ffplay
-	--disable-ffprobe
 )
 
 # 平台特定参数
@@ -129,7 +119,7 @@ elseif(APPLE)
 		--arch=${APPLE_ARCH}
 		--extra-cflags=${CMAKE_C_FLAGS}
 		--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
-
+		--disable-videotoolbox
     )
 elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS
