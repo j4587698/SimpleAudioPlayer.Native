@@ -114,11 +114,15 @@ elseif(APPLE)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=darwin
         --sysroot=${CMAKE_OSX_SYSROOT}
-		--cc=${CMAKE_C_FLAGS}
-		--cxx=${CMAKE_CXX_FLAGS}
+		--cc=clang
+		--cxx=clang++
 		--enable-videotoolbox
 		--enable-coreimage
 		--enable-securetransport
+		--arch=${APPLE_ARCH}
+		--extra-cflags=${CMAKE_C_FLAGS}
+		--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
+
     )
 elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS

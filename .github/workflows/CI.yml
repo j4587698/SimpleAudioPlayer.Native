@@ -106,7 +106,7 @@ jobs:
         cmake --build $BUILD_DIR/macos --config Release -- VERBOSE=1 2>&1 | tee build.log || true
         
         # 自动定位并打印FFmpeg配置日志
-        if [ -f "$BUILD_DIR/ffmpeg/src/ffmpeg-build/ffbuild/config.log" ]; then
+        if [ -f "$BUILD_DIR/macos/ffmpeg/src/ffmpeg-build/ffbuild/config.log" ]; then
         echo "↓↓↓↓↓↓ FFmpeg config.log ↓↓↓↓↓↓"
         cat $BUILD_DIR/macos/ffmpeg/src/ffmpeg-build/ffbuild/config.log
         echo "↑↑↑↑↑↑ FFmpeg config.log ↑↑↑↑↑↑"
