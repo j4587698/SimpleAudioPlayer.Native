@@ -261,4 +261,5 @@ jobs:
       with:
         NUGET_KEY: ${{secrets.NUGET_API_KEY}}
         PACKAGE_NAME: Jx.SimpleAudioPlayer.Natvie
+        PROJECT_FILE_PATH: ${{ NATIVE_PROJECT_DIR }}/SimpleAudioPlayer.Native.csproj
     
