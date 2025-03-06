@@ -64,7 +64,6 @@ set(FFMPEG_BASE_ARGS
     --enable-static
 	--enable-pic
 	--extra-cflags=-fPIC
-	--extra-ldflags=-fPIC
 	--enable-cross-compile
 )
 
@@ -135,6 +134,7 @@ elseif(APPLE)
 			--ar=${CMAKE_AR}
 			--arch=${APPLE_ARCH}
 			--extra-cflags=${CMAKE_C_FLAGS}
+			--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
 			--disable-videotoolbox
 		)
 	endif ()
