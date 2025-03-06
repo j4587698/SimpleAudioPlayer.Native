@@ -230,7 +230,6 @@ elseif(APPLE)
 				"-framework CoreAudio"
 				"-framework AudioToolbox"
 				"-framework AVFoundation"
-				"-framework AudioUnit"
 				"-lpthread"
 				"-lm"
 		)
