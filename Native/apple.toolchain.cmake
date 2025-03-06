@@ -84,10 +84,12 @@ set(CMAKE_RANLIB "${RANLIB_PATH}" CACHE FILEPATH "库索引工具" FORCE)
 
 # 编译标志配置
 string(APPEND CMAKE_C_FLAGS_INIT
+        " -arch ${APPLE_ARCH}"
         " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
 string(APPEND CMAKE_CXX_FLAGS_INIT
+        " -arch ${APPLE_ARCH}"
         " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
@@ -101,7 +103,6 @@ set(CMAKE_LINKER "${LD_PATH}" CACHE FILEPATH "链接器" FORCE)
 # iOS特殊链接参数
 if(APPLE_PLATFORM STREQUAL "IOS")
     set(COMMON_FLAGS
-            " -arch ${APPLE_ARCH}"
             " -target ${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}"
             " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
             " -fembed-bitcode"
@@ -123,6 +124,24 @@ if(APPLE_PLATFORM STREQUAL "IOS")
             " -fembed-bitcode"
             " -Xlinker"
             " -bitcode_bundle"
+    )
+    string(JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT ${LINKER_FLAGS})
+else ()
+    set(COMMON_FLAGS
+            " -target ${APPLE_ARCH}-apple-macos${CMAKE_OSX_DEPLOYMENT_TARGET}"
+    )
+
+    string(JOIN " " CFLAGS ${COMMON_FLAGS})
+    string(JOIN " " CXXFLAGS ${COMMON_FLAGS})
+    string(JOIN " " CMAKE_OBJC_FLAGS  ${COMMON_FLAGS})
+
+    set(CMAKE_C_FLAGS_INIT "${CFLAGS}")
+    set(CMAKE_CXX_FLAGS_INIT "${CXXFLAGS}")
+    set(CMAKE_OBJC_FLAGS_INIT "${CMAKE_OBJC_FLAGS}")
+
+    # 链接器参数
+    set(LINKER_FLAGS
+            " -target ${APPLE_ARCH}-apple-macos${CMAKE_OSX_DEPLOYMENT_TARGET}"
     )
     string(JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT ${LINKER_FLAGS})
 endif()
