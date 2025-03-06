@@ -259,7 +259,6 @@ jobs:
       run: |
           dotnet pack ./SimpleAudioPlayer.Native/SimpleAudioPlayer.Native.csproj \
             -c Release \
-            -p:PackageVersion=${{ github.ref_name }} \
             -o ${{env.ARTIFACT_DIR}}/nuget
 
     - name: Upload NuGet Package
