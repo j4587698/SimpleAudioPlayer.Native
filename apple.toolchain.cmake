@@ -116,6 +116,8 @@ if(APPLE_PLATFORM STREQUAL "IOS")
     set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fembed-bitcode")
     set(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE "YES")
     string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
+            " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            " -fembed-bitcode"
             " -Xlinker -bitcode_verify"
             " -Xlinker -bitcode_bundle"
     )

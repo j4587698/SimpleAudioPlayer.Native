@@ -114,14 +114,14 @@ elseif(APPLE)
 	if (APPLE_PLATFORM STREQUAL "IOS")
 		list(APPEND FFMPEG_BASE_ARGS
 			--enable-cross-compile
-			--target-os=ios
+				--sysroot=${CMAKE_OSX_SYSROOT}
+			--target-os=darwin
 			--arch=${APPLE_ARCH}
 			--cc=${CMAKE_C_COMPILER}
 			--cxx=${CMAKE_CXX_COMPILER}
 			--ld=${CMAKE_LINKER}
 			--ar=${CMAKE_AR}
 			--extra-cflags=${CMAKE_C_FLAGS}
-			--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
 			--disable-videotoolbox
 		)
 	else ()
