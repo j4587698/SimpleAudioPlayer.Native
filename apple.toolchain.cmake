@@ -105,7 +105,6 @@ if(APPLE_PLATFORM STREQUAL "IOS")
             " -target ${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}"
             " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
             " -fembed-bitcode"
-            " -Oz -flto=thin"
     )
 
     string(JOIN " " CFLAGS ${COMMON_FLAGS})
@@ -124,7 +123,6 @@ if(APPLE_PLATFORM STREQUAL "IOS")
             " -fembed-bitcode"
             " -Xlinker"
             " -bitcode_bundle"
-            "-Wl,-dead_strip"
     )
     string(JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT ${LINKER_FLAGS})
 endif()
