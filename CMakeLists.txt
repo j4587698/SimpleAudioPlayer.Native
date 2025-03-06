@@ -122,6 +122,7 @@ elseif(APPLE)
 			--ld=${CMAKE_C_COMPILER}
 			--ar=${CMAKE_AR}
 			--extra-cflags=${CMAKE_C_FLAGS}
+			--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
 			--disable-videotoolbox
 		)
 	else ()
@@ -230,6 +231,7 @@ elseif(APPLE)
 				"-framework CoreAudio"
 				"-framework AudioToolbox"
 				"-framework AVFoundation"
+				"-framework Foundation"
 				"-lpthread"
 				"-lm"
 		)
