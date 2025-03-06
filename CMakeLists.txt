@@ -113,7 +113,6 @@ elseif(APPLE)
 
 	if (APPLE_PLATFORM STREQUAL "IOS")
 		list(APPEND FFMPEG_BASE_ARGS
-			--enable-cross-compile
 				--sysroot=${CMAKE_OSX_SYSROOT}
 			--target-os=darwin
 			--arch=${APPLE_ARCH}

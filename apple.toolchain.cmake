@@ -91,18 +91,6 @@ string(APPEND CMAKE_CXX_FLAGS_INIT
         " -m${VERSION_FLAG_PREFIX}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
 )
 
-# iOS特殊处理
-if(APPLE_PLATFORM STREQUAL "IOS")
-    string(APPEND CMAKE_C_FLAGS_INIT
-            " -target ${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}"
-            " -fembed-bitcode"
-    )
-    string(APPEND CMAKE_CXX_FLAGS_INIT
-            " -target ${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}"
-            " -fembed-bitcode"
-    )
-endif()
-
 execute_process(
         COMMAND xcrun --sdk ${APPLE_SDK_NAME} --find ld
         OUTPUT_VARIABLE LD_PATH
@@ -112,14 +100,23 @@ set(CMAKE_LINKER "${LD_PATH}" CACHE FILEPATH "链接器" FORCE)
 
 # iOS特殊链接参数
 if(APPLE_PLATFORM STREQUAL "IOS")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fembed-bitcode")
-    set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fembed-bitcode")
-    set(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE "YES")
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT
-            " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
-            " -fembed-bitcode"
-            " -Xlinker -bitcode_verify"
-            " -Xlinker -bitcode_bundle"
+    set(COMMON_FLAGS
+            "-arch ${APPLE_ARCH}"
+            "-target ${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            "-miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            "-fembed-bitcode"
+    )
+
+    string(JOIN " " CFLAGS ${COMMON_FLAGS})
+    string(JOIN " " CXXFLAGS ${COMMON_FLAGS})
+
+    set(CMAKE_C_FLAGS_INIT "${CFLAGS}")
+    set(CMAKE_CXX_FLAGS_INIT "${CXXFLAGS}")
+
+    # 链接器参数
+    set(CMAKE_EXE_LINKER_FLAGS_INIT
+            "-fembed-bitcode"
+            "-Xlinker -bitcode_bundle"
     )
 endif()
 
@@ -128,9 +125,3 @@ set(CMAKE_FIND_ROOT_PATH "${CMAKE_OSX_SYSROOT}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-
-set(CMAKE_LINK_SEARCH_START_STATIC ON)
-set(CMAKE_LINK_SEARCH_END_STATIC ON)
-if(APPLE_PLATFORM STREQUAL "IOS")
-    set(CMAKE_LINK_DEPENDS_NO_SHARED ON)  # iOS应禁止链接共享库依赖
-endif()
