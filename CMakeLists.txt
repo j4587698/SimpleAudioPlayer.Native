@@ -264,6 +264,6 @@ install(TARGETS audio_player
 		LIBRARY DESTINATION lib
 		ARCHIVE DESTINATION lib
 		RUNTIME DESTINATION bin
-
+)
 
 install(DIRECTORY include/ DESTINATION include)
