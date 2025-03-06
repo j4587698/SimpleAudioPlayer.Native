@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.20)
 # 架构映射
 set(WIN_ARCH_MAP
     "x86_64=x86_64-w64-mingw32"
+    "x86=i686-w64-mingw32"
 )
 
 # 查找工具链前缀

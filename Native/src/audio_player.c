@@ -131,7 +131,6 @@ MA_API AudioError audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onR
     ma_result result = ma_decoder_init_with_tell(onRead, onSeek, onTell, userdata, &decoderConfig, &ctx->decoder);
 	
 	ma_uint64 totalFrames;
-	printf("result %d", ma_data_source_get_length_in_pcm_frames((ma_data_source*)ctx->decoder.pBackend, &totalFrames));
 	
 	ma_mutex_unlock(&ctx->mutex);
 	
@@ -175,7 +174,6 @@ MA_API ma_result seek_to_time(AudioContext* ctx, const double timeInSec) {
     }
 	
     ma_uint64 target_frame = (ma_uint64)(timeInSec * ctx->decoder.outputSampleRate);
-	printf("timeInSec: %f target_frame: %d", timeInSec, target_frame);
     return ma_decoder_seek_to_pcm_frame(&ctx->decoder, target_frame);
 }
 
@@ -227,7 +225,6 @@ MA_API ma_result get_duration(AudioContext* ctx, double* duration){
 	}
     ma_uint64 cursor;
     ma_result result = ma_decoder_get_length_in_pcm_frames(&ctx->decoder, &cursor);
-	printf("frames is %d", cursor);
     if (result != MA_SUCCESS) {
 		return result;
 	}

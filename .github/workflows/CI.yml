@@ -8,11 +8,16 @@ on:
 env:
   BUILD_DIR: ${{ github.workspace }}/build
   ARTIFACT_DIR: ${{ github.workspace }}/artifacts
+  NATIVE_PROJECT_DIR: ${{ github.workspace }}/SimpleAudioPlayer.Native
+  RUNTIME_DIR: ${{ github.workspace }}/SimpleAudioPlayer.Native/runtimes
 
 jobs:
   windows:
     name: Windows x64
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [ x86, x86_64 ]
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -27,22 +32,22 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/win64 \
+        cmake -B $BUILD_DIR/windows-${{ matrix.arch }} -S ./Native \
           -DCMAKE_TOOLCHAIN_FILE=windows.toolchain.cmake \
-          -DCROSS_ARCH=x86_64
+          -DCROSS_ARCH=${{ matrix.arch }}
 
     - name: Build
-      run: cmake --build $BUILD_DIR/win64 --config Release -- -j$(nproc)
+      run: cmake --build $BUILD_DIR/windows-${{ matrix.arch }} --config Release -- -j$(nproc)
 
     - name: Package
       run: |
-        mkdir -p $ARTIFACT_DIR/win64
-        cp $BUILD_DIR/win64/bin/*.dll $ARTIFACT_DIR/win64/
+        mkdir -p $ARTIFACT_DIR/windows-${{ matrix.arch }}
+        cp $BUILD_DIR/windows-${{ matrix.arch }}/bin/*.dll $ARTIFACT_DIR/windows-${{ matrix.arch }}/
 
     - uses: actions/upload-artifact@v4
       with:
         name: windows-x64-binaries
-        path: ${{env.ARTIFACT_DIR}}/win64/libaudio_player.dll
+        path: ${{env.ARTIFACT_DIR}}/windows-${{ matrix.arch }}/libaudio_player.dll
 
   linux:
     name: Linux
@@ -63,7 +68,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/linux-${{ matrix.arch }} \
+        cmake -B $BUILD_DIR/linux-${{ matrix.arch }} -S ./Native \
           -DCMAKE_TOOLCHAIN_FILE=linux.toolchain.cmake \
           -DCROSS_ARCH=${{ matrix.arch }}
 
@@ -82,7 +87,7 @@ jobs:
         path: ${{env.ARTIFACT_DIR}}/linux-${{ matrix.arch }}/libaudio_player.so
 
   macos:
-    name: macOS Universal
+    name: macOS
     runs-on: macos-latest
     strategy:
       matrix:
@@ -99,7 +104,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/macos-${{ matrix.arch }} \
+        cmake -B $BUILD_DIR/macos-${{ matrix.arch }} -S ./Native \
           -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
           -DAPPLE_PLATFORM=MACOS \
           -DAPPLE_ARCH=${{ matrix.arch }}
@@ -107,16 +112,9 @@ jobs:
     - name: Build
       run: |
         # 使用tee命令捕获完整构建日志
-        cmake --build $BUILD_DIR/macos-${{ matrix.arch }} --config Release -- VERBOSE=1 2>&1 | tee build.log || true
-        # 自动定位并打印FFmpeg配置日志
-             if [ -f "$BUILD_DIR/macos-${{ matrix.arch }}/ffmpeg/src/ffmpeg-build/ffbuild/config.log" ]; then
-             echo "↓↓↓↓↓↓ FFmpeg config.log ↓↓↓↓↓↓"
-             tail -100 $BUILD_DIR/macos-${{ matrix.arch }}/ffmpeg/src/ffmpeg-build/ffbuild/config.log
-             echo "↑↑↑↑↑↑ FFmpeg config.log ↑↑↑↑↑↑"
-             else
-             echo "⚠️ config.log not found in expected location"
-             fi
-    - name: Create Universal Binary
+        cmake --build $BUILD_DIR/macos-${{ matrix.arch }} --config Release --
+        
+    - name: Create macos
       run: |
         mkdir -p $ARTIFACT_DIR/macos-${{ matrix.arch }}
         lipo -create -output $ARTIFACT_DIR/macos-${{ matrix.arch }}/libaudio_player.dylib \
@@ -142,7 +140,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -B $BUILD_DIR/ios \
+          cmake -B $BUILD_DIR/ios -S ./Native \
             -DCMAKE_TOOLCHAIN_FILE=apple.toolchain.cmake \
             -DAPPLE_PLATFORM=IOS \
             -DAPPLE_ARCH=arm64
@@ -150,9 +148,9 @@ jobs:
       - name: Build
         run: |
           # 使用tee命令捕获完整构建日志
-          cmake --build $BUILD_DIR/ios --config Release -- VERBOSE=1 2>&1 | tee build.log || true
+          cmake --build $BUILD_DIR/ios --config Release -- 
 
-      - name: Create Universal Binary
+      - name: Create ios
         run: |
           mkdir -p $ARTIFACT_DIR/ios 
           lipo -create -output $ARTIFACT_DIR/ios/libaudio_player.dylib \
@@ -183,7 +181,7 @@ jobs:
 
     - name: Configure
       run: |
-        cmake -B $BUILD_DIR/android-${{ matrix.abi }} \
+        cmake -B $BUILD_DIR/android-${{ matrix.abi }} -S ./Native \
           -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
           -DCROSS_TARGET=Android \
           -DCROSS_ARCH=${{ matrix.abi }} \
@@ -205,3 +203,75 @@ jobs:
         name: android-${{ matrix.abi }}-binaries
         path: ${{env.ARTIFACT_DIR}}/android-${{ matrix.abi }}/libaudio_player.so
 
+  package_nuget:
+    name: Package NuGet
+    needs: [windows, linux, macos, ios, android]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+         path: ${{env.ARTIFACT_DIR}}
+    - name: Create Runtime
+      run: |
+        # 创建标准runtime目录结构
+        mkdir -p ${{env.RUNTIME_DIR}}/win-x64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/win-x86/native
+        mkdir -p ${{env.RUNTIME_DIR}}/linux-x64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/linux-arm/native
+        mkdir -p ${{env.RUNTIME_DIR}}/linux-arm64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/osx-x64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/osx-arm64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/iOS-arm64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/android-arm/native
+        mkdir -p ${{env.RUNTIME_DIR}}/android-x64/native
+        mkdir -p ${{env.RUNTIME_DIR}}/android-arm64/native
+        
+        # Windows
+        cp ${{env.ARTIFACT_DIR}}/windows-x86_64/libaudio_player.dll ${{env.RUNTIME_DIR}}/win-x64/native/
+        cp ${{env.ARTIFACT_DIR}}/windows-x86/libaudio_player.dll ${{env.RUNTIME_DIR}}/win-x86/native/
+
+        # Linux
+        cp ${{env.ARTIFACT_DIR}}/linux-x86_64/libaudio_player.so ${{env.RUNTIME_DIR}}/linux-x64/native/
+        cp ${{env.ARTIFACT_DIR}}/linux-arm/libaudio_player.so ${{env.RUNTIME_DIR}}/linux-arm/native/
+        cp ${{env.ARTIFACT_DIR}}/linux-aarch64/libaudio_player.so ${{env.RUNTIME_DIR}}/linux-arm64/native/
+
+        # macOS
+        cp ${{env.ARTIFACT_DIR}}/macos-x86_64/libaudio_player.dylib ${{env.RUNTIME_DIR}}/osx-x64/native/
+        cp ${{env.ARTIFACT_DIR}}/macos-arm64/libaudio_player.dylib ${{env.RUNTIME_DIR}}/osx-arm64/native/
+
+        # iOS
+        cp ${{env.ARTIFACT_DIR}}/ios/libaudio_player.dylib ${{env.RUNTIME_DIR}}/iOS-arm64/native/
+
+        # Android
+        cp ${{env.ARTIFACT_DIR}}/android-arm64-v8a/libaudio_player.so ${{env.RUNTIME_DIR}}/android-arm64/native/
+        cp ${{env.ARTIFACT_DIR}}/android-armeabi-v7a/libaudio_player.so ${{env.RUNTIME_DIR}}/android-arm/native/
+        cp ${{env.ARTIFACT_DIR}}/android-x86_64/libaudio_player.so ${{env.RUNTIME_DIR}}/android-x64/native/
+         
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+        
+    - name: Restore Packages
+      run: dotnet restore SimpleAudioPlayer.Native.sln
+
+    - name: Build Native Project
+      run: dotnet build SimpleAudioPlayer.Native.sln -c Release
+
+    - name: Pack NuGet
+      run: |
+          dotnet pack ./Native/SimpleAudioPlayer.Native/SimpleAudioPlayer.Native.csproj \
+            -c Release \
+            -p:PackageVersion=${{ github.ref_name }} \
+            -p:Version=${{ github.ref_name }} \
+            -o ${{env.ARTIFACT_DIR}}/nuget
+
+    - name: Upload NuGet Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: SimpleAudioPlayer.Native
+        path: ${{env.ARTIFACT_DIR}}/nuget/*.nupkg
+    

@@ -750,9 +750,6 @@ MA_API ma_result ma_ffmpeg_get_length_in_pcm_frames(ma_ffmpeg *pFFmpeg, ma_uint6
     if (!pLength) {
         return MA_INVALID_ARGS;
     }
-	printf("ma_ffmpeg_ds_get_length called, pFFmpeg=%p\n", pFFmpeg);
-	printf("ma_ffmpeg_ds_get_length called, nb_frames=%d\n", pFFmpeg->stream->nb_frames);
-	printf("ma_ffmpeg_ds_get_length called, duration=%f\n", pFFmpeg->stream->duration);
     *pLength = 0;
 
     if (!pFFmpeg) {

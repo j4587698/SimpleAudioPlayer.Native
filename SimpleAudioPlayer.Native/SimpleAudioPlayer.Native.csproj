@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Version>6.1</Version>
+        <Authors>Jx</Authors>
+        <Company>JxAudio</Company>
+        <Description>Simple Audio Player Native with miniaudio and ffmpeg</Description>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageProjectUrl>https://github.com/j4587698/SimpleAudioPlayer</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/j4587698/SimpleAudioPlayer</RepositoryUrl>
+        <PackageTags>audio miniaudio ffmpeg player</PackageTags>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>default</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="runtimes/**/*" PackagePath="runtimes" />
+    </ItemGroup>
+</Project>
