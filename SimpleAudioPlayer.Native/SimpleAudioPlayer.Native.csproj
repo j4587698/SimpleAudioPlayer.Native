@@ -14,6 +14,7 @@
         <PackageProjectUrl>https://github.com/j4587698/SimpleAudioPlayer</PackageProjectUrl>
         <RepositoryUrl>https://github.com/j4587698/SimpleAudioPlayer</RepositoryUrl>
         <PackageTags>audio miniaudio ffmpeg player</PackageTags>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
         <LangVersion>default</LangVersion>
     </PropertyGroup>
