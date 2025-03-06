@@ -9,7 +9,7 @@
         <Description>Simple Audio Player Native with miniaudio and ffmpeg</Description>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <IncludeBuildOutput>false</IncludeBuildOutput>
-        <PackageLicenseExpression>LGPL-3.0</PackageLicenseExpression>
+        <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageProjectUrl>https://github.com/j4587698/SimpleAudioPlayer</PackageProjectUrl>
         <RepositoryUrl>https://github.com/j4587698/SimpleAudioPlayer</RepositoryUrl>
