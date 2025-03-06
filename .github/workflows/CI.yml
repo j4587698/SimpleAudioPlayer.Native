@@ -257,7 +257,7 @@ jobs:
         
     - name: Publish NuGet Packages
       id: publish_nuget
-      uses: tedd/publish-nuget-neo@v2
+      uses: tedd/publish-nuget-neo@v1.0.2
       with:
         NUGET_KEY: ${{secrets.NUGET_API_KEY}}
         PACKAGE_NAME: Jx.SimpleAudioPlayer.Natvie
