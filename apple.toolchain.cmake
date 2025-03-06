@@ -117,9 +117,12 @@ if(APPLE_PLATFORM STREQUAL "IOS")
 
     # 链接器参数
     set(LINKER_FLAGS
-            "-fembed-bitcode"
-            "-Xlinker"
-            "-bitcode_bundle"
+            " -arch ${APPLE_ARCH}"
+            " -target ${APPLE_ARCH}-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            " -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+            " -fembed-bitcode"
+            " -Xlinker"
+            " -bitcode_bundle"
     )
     string(JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT ${LINKER_FLAGS})
 endif()
