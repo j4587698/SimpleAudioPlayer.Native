@@ -119,7 +119,7 @@ elseif(APPLE)
 			--arch=${APPLE_ARCH}
 			--cc=${CMAKE_C_COMPILER}
 			--cxx=${CMAKE_CXX_COMPILER}
-			--ld=${CMAKE_LINKER}
+			--ld=${CMAKE_C_COMPILER}
 			--ar=${CMAKE_AR}
 			--extra-cflags=${CMAKE_C_FLAGS}
 			--disable-videotoolbox
