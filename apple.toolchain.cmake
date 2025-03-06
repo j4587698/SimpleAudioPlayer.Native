@@ -114,10 +114,12 @@ if(APPLE_PLATFORM STREQUAL "IOS")
     set(CMAKE_CXX_FLAGS_INIT "${CXXFLAGS}")
 
     # 链接器参数
-    set(CMAKE_EXE_LINKER_FLAGS_INIT
-            " -fembed-bitcode"
-            " -Xlinker -bitcode_bundle"
+    set(LINKER_FLAGS
+            "-fembed-bitcode"
+            "-Xlinker"
+            "-bitcode_bundle"
     )
+    string(JOIN " " CMAKE_EXE_LINKER_FLAGS_INIT ${LINKER_FLAGS})
 endif()
 
 # 路径查找策略
