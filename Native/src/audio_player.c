@@ -87,10 +87,10 @@ MA_API AudioContext* audio_context_create(){
     return ctx;
 }
 
-MA_API AudioError audio_init_device(AudioContext* ctx, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
+MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
 {
-    if (!ctx) return AUDIO_ERROR_INIT_DEVICE;
-	if (ctx->device_initialized) return AUDIO_SUCCESS;
+    if (!ctx) return MA_INVALID_ARGS;
+	if (ctx->device_initialized) return MA_SUCCESS;
 
     // 配置音频设备
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
@@ -102,18 +102,18 @@ MA_API AudioError audio_init_device(AudioContext* ctx, const ma_format format, c
 
     ma_result result = ma_device_init(NULL, &deviceConfig, &ctx->device);
     if (result != MA_SUCCESS) {
-        return AUDIO_ERROR_INIT_DEVICE;
+        return MA_ERROR;
     }
 
     ctx->device_initialized = true;
-    return AUDIO_SUCCESS;
+    return MA_SUCCESS;
 }
 
 
 
-MA_API AudioError audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek, ma_decoder_tell_proc onTell, void* userdata)
+MA_API ma_result audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek, ma_decoder_tell_proc onTell, void* userdata)
 {
-    if (!ctx) return AUDIO_ERROR_INIT_DECODER;
+    if (!ctx) return MA_INVALID_ARGS;
 
 	ma_mutex_lock(&ctx->mutex);
 	if (ctx->decoder.pBackend != NULL){
@@ -134,25 +134,25 @@ MA_API AudioError audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onR
 	
 	ma_mutex_unlock(&ctx->mutex);
 	
-    return result != MA_SUCCESS ? AUDIO_ERROR_INIT_DECODER : AUDIO_SUCCESS;
+    return result;
 }
 
-MA_API AudioError audio_play(AudioContext* ctx)
+MA_API ma_result audio_play(AudioContext* ctx)
 {
-    if (!ctx) return AUDIO_ERROR_MEMORY;
+    if (!ctx) return MA_INVALID_ARGS;
 
     if (ma_device_start(&ctx->device) == MA_SUCCESS) {
-        return AUDIO_SUCCESS;
+        return MA_SUCCESS;
     }
-	return AUDIO_ERROR_DEVICE_START;
+	return MA_ERROR;
 }
 
-MA_API AudioError audio_stop(AudioContext* ctx)
+MA_API ma_result audio_stop(AudioContext* ctx)
 {
-    if (!ctx) return AUDIO_ERROR_MEMORY;
+    if (!ctx) return MA_INVALID_ARGS;
 	
     ma_device_stop(&ctx->device);
-    return AUDIO_SUCCESS;
+    return MA_SUCCESS;
 }
 
 MA_API void audio_cleanup(AudioContext* ctx)
