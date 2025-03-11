@@ -31,6 +31,7 @@
 
 - FFmpeg (LGPL-2.1+/GPLv2+) https://ffmpeg.org/
 - miniaudio (Public Domain/DMIT) https://miniaud.io/
+- miniaudio-ffmpeg-decoder (Public Domain/DMIT) https://github.com/Mr-Ojii/miniaudio-ffmpeg-decoder
 
 ## LICENSE
 ![license](https://img.shields.io/github/license/j4587698/SimpleAudioPlayer.Native)
