@@ -169,7 +169,6 @@ static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_siz
     size_t bytesToRead;
 	
     if (!pFFmpeg->onRead || !buf_size) {
-		ma_mutex_unlock(&pFFmpeg->lock);
         return -1;
     }
 
@@ -586,7 +585,6 @@ MA_API ma_result ma_ffmpeg_read_pcm_frames(ma_ffmpeg *pFFmpeg, void *pFramesOut,
             ret = decode_one_cycle(pFFmpeg);
             if (ret == MA_AT_END){
                 finalResult = MA_AT_END;
-				ma_mutex_unlock(&pFFmpeg->lock);  // 解锁
 				break;
 			}
         }
