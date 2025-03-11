@@ -24,6 +24,10 @@ MA_API ma_result get_length_in_pcm_frames(AudioContext* ctx, ma_int64* frames);
 MA_API ma_result get_cursor_in_pcm_frames(AudioContext* ctx, ma_int64* frames);
 MA_API ma_result get_time(AudioContext* ctx, double* time);
 MA_API ma_result get_duration(AudioContext* ctx, double* duration);
+MA_API float get_volume(AudioContext* ctx);
+MA_API ma_result set_volume(AudioContext* ctx, float volume);
+MA_API ma_bool32 is_playing(AudioContext* ctx);
+MA_API ma_device_state get_play_state(AudioContext* ctx);
 
 #ifdef __cplusplus
 }

@@ -259,3 +259,12 @@ MA_API float get_volume(AudioContext* ctx){
 
     return *volume;
 }
+
+MA_API ma_device_state get_play_state(AudioContext* ctx){
+    if (ctx == NULL){
+        return MA_INVALID_ARGS;
+    }
+
+    return ma_device_get_state(&ctx->device);
+
+}
