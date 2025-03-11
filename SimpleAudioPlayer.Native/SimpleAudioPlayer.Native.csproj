@@ -3,7 +3,7 @@
     <PropertyGroup>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Version>1.2.0</Version>
+        <Version>1.3.0</Version>
         <Authors>Jx</Authors>
         <Company>JxAudio</Company>
         <Description>Simple Audio Player Native with miniaudio and ffmpeg</Description>
