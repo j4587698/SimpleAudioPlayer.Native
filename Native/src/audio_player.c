@@ -248,16 +248,16 @@ MA_API ma_result set_volume(AudioContext* ctx, float volume){
 
 MA_API float get_volume(AudioContext* ctx){
     if (ctx == NULL){
-        return MA_INVALID_ARGS;
+        return -1;
     }
 
-	float* volume = 0;
-    ma_result result = ma_device_get_master_volume(&ctx->device, volume);
+	float volume = 0;
+    ma_result result = ma_device_get_master_volume(&ctx->device, &volume);
     if (result != MA_SUCCESS){
-        return 0;
+        return -1;
     }
 
-    return *volume;
+    return volume;
 }
 
 MA_API ma_device_state get_play_state(AudioContext* ctx){
