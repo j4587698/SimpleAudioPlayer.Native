@@ -232,3 +232,30 @@ MA_API ma_result get_duration(AudioContext* ctx, double* duration){
     *duration = (double)cursor / ctx->decoder.outputSampleRate;
     return MA_SUCCESS;
 }
+
+MA_API ma_result set_volume(AudioContext* ctx, float volume){
+    if (ctx == NULL){
+        return MA_INVALID_ARGS;
+    }
+
+    ma_result result = ma_device_set_master_volume(&ctx->device, volume);
+    if (result != MA_SUCCESS){
+        return result;
+    }
+
+    return MA_SUCCESS;
+}
+
+MA_API float get_volume(AudioContext* ctx){
+    if (ctx == NULL){
+        return MA_INVALID_ARGS;
+    }
+
+	float* volume = 0;
+    ma_result result = ma_device_get_master_volume(&ctx->device, volume);
+    if (result != MA_SUCCESS){
+        return 0;
+    }
+
+    return *volume;
+}
