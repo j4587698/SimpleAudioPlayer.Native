@@ -10,10 +10,11 @@ extern "C" {
 
 // 不透明句柄类型
 typedef struct AudioContext AudioContext;
+typedef void (*AudioStopCallback)(void);
 
 // 导出函数
 MA_API AudioContext* audio_context_create(void);
-MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate);
+MA_API ma_result audio_init_device(AudioContext* ctx, AudioStopCallback managedCallback, ma_device_notification_proc notification, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate);
 MA_API ma_result audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek, ma_decoder_tell_proc onTell, void* userdata);
 MA_API ma_result audio_play(AudioContext* ctx);
 MA_API ma_result audio_stop(AudioContext* ctx);

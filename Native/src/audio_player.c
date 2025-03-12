@@ -48,6 +48,7 @@ struct AudioContext{
     ma_decoder decoder;
     ma_device device;
 	ma_mutex mutex;
+	AudioStopCallback managedCallback;
     bool device_initialized;
 } ;
 
@@ -57,8 +58,12 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
     AudioContext* ctx = (AudioContext*)pDevice->pUserData;
     if (ctx) {
 		ma_mutex_lock(&ctx->mutex);
-        ma_data_source_read_pcm_frames(&ctx->decoder, pOutput, frameCount, NULL);
-		ma_mutex_unlock(&ctx->mutex);
+        ma_result res = ma_data_source_read_pcm_frames(&ctx->decoder, pOutput, frameCount, NULL);
+    	ma_mutex_unlock(&ctx->mutex);
+    	if (res == MA_AT_END) {
+    		if (ctx->managedCallback)
+    			ctx->managedCallback();
+    	}
     }
 
     (void)pInput;
@@ -88,9 +93,8 @@ MA_API AudioContext* audio_context_create(){
     return ctx;
 }
 
-
-
-MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
+MA_API ma_result audio_init_device(AudioContext* ctx, AudioStopCallback managedCallback,
+	ma_device_notification_proc notification, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
 {
     if (!ctx) return MA_INVALID_ARGS;
 	if (ctx->device_initialized) return MA_SUCCESS;
@@ -102,12 +106,13 @@ MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, co
     deviceConfig.sampleRate        = sampleRate;
     deviceConfig.dataCallback      = data_callback;
     deviceConfig.pUserData         = ctx;
-	// deviceConfig.notificationCallback =
+	deviceConfig.notificationCallback = notification;
 
     ma_result result = ma_device_init(NULL, &deviceConfig, &ctx->device);
     if (result != MA_SUCCESS) {
         return MA_ERROR;
     }
+	ctx->managedCallback = managedCallback;
 
     ctx->device_initialized = true;
     return MA_SUCCESS;
@@ -115,7 +120,8 @@ MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, co
 
 
 
-MA_API ma_result audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek, ma_decoder_tell_proc onTell, void* userdata)
+MA_API ma_result audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRead, ma_decoder_seek_proc onSeek,
+	ma_decoder_tell_proc onTell, void* userdata)
 {
     if (!ctx) return MA_INVALID_ARGS;
 
