@@ -60,6 +60,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         ma_data_source_read_pcm_frames(&ctx->decoder, pOutput, frameCount, NULL);
 		ma_mutex_unlock(&ctx->mutex);
     }
+
     (void)pInput;
 }
 
@@ -87,6 +88,8 @@ MA_API AudioContext* audio_context_create(){
     return ctx;
 }
 
+
+
 MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
 {
     if (!ctx) return MA_INVALID_ARGS;
@@ -99,6 +102,7 @@ MA_API ma_result audio_init_device(AudioContext* ctx, const ma_format format, co
     deviceConfig.sampleRate        = sampleRate;
     deviceConfig.dataCallback      = data_callback;
     deviceConfig.pUserData         = ctx;
+	// deviceConfig.notificationCallback =
 
     ma_result result = ma_device_init(NULL, &deviceConfig, &ctx->device);
     if (result != MA_SUCCESS) {
@@ -126,11 +130,9 @@ MA_API ma_result audio_init_decoder(AudioContext* ctx, ma_decoder_read_proc onRe
     ma_decoder_config decoderConfig = ma_decoder_config_init(ctx->device.playback.format, ctx->device.playback.channels, ctx->device.sampleRate);
     decoderConfig.ppCustomBackendVTables = backends;
     decoderConfig.customBackendCount = 1;
-	
+
     // 初始化解码器
     ma_result result = ma_decoder_init_with_tell(onRead, onSeek, onTell, userdata, &decoderConfig, &ctx->decoder);
-	
-	ma_uint64 totalFrames;
 	
 	ma_mutex_unlock(&ctx->mutex);
 	

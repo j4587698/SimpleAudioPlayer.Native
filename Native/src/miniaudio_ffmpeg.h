@@ -102,10 +102,12 @@ typedef struct
     AVFrame* frame;
     AVPacket* packet;
     SwrContext* swrCtx;
-    uint8_t* swrBuf;
+    AVBufferRef* swrBuf;       // 改为AVBufferRef类型
+    int swrBufSize;   // 新增缓冲区大小跟踪
     uint64_t cursor;
     ma_ffmpeg_queue queue;
 	ma_mutex lock;
+    ma_bool32 eofReached;
 #endif
 } ma_ffmpeg;
 
@@ -128,7 +130,8 @@ MA_API ma_result ma_ffmpeg_get_length_in_pcm_frames(ma_ffmpeg* pFFmpeg, ma_uint6
 
 static ma_result ma_ffmpeg_ds_read(ma_data_source* pDataSource, void* pFramesOut, ma_uint64 frameCount, ma_uint64* pFramesRead)
 {
-    return ma_ffmpeg_read_pcm_frames((ma_ffmpeg*)pDataSource, pFramesOut, frameCount, pFramesRead);
+    ma_result res = ma_ffmpeg_read_pcm_frames((ma_ffmpeg*)pDataSource, pFramesOut, frameCount, pFramesRead);
+    return res;
 }
 
 static ma_result ma_ffmpeg_ds_seek(ma_data_source* pDataSource, ma_uint64 frameIndex)
@@ -173,6 +176,9 @@ static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_siz
     }
 
     result = pFFmpeg->onRead(pFFmpeg->pReadSeekTellUserData, buf, buf_size, &bytesToRead);
+    if (result == MA_AT_END) {
+        return 0;
+    }
     return (result == MA_SUCCESS) ? bytesToRead : -1;
 }
 
@@ -313,66 +319,124 @@ static ma_result ma_ffmpeg_queue_read(ma_ffmpeg_queue* queue, void* data, size_t
 // queue
 
 static ma_result decode_one_cycle(ma_ffmpeg* pFFmpeg) {
-    if (!pFFmpeg) {
-        return MA_INVALID_ARGS;
-    }
+    if (!pFFmpeg) return MA_INVALID_ARGS;
 
     int ret = AVERROR_UNKNOWN;
-    if ((ret = av_read_frame(pFFmpeg->formatCtx, pFFmpeg->packet)) < 0) {
-        if (ret == AVERROR_EOF) {
-            return MA_AT_END;
-        }
-        return MA_ERROR;
-    }
-    if (pFFmpeg->packet->stream_index == pFFmpeg->stream->index) {
-        if (avcodec_send_packet(pFFmpeg->codecCtx, pFFmpeg->packet) < 0) {
-            // エラーだが、継続
-        }
-        if ((ret = avcodec_receive_frame(pFFmpeg->codecCtx, pFFmpeg->frame)) < 0) {
+    AVFrame* frame = pFFmpeg->frame;
+
+    /*-----------------------------------------------------------
+    第一部分：读取数据包
+    -----------------------------------------------------------*/
+    if (!pFFmpeg->eofReached) { // 只有未到EOF时才读取新包
+        ret = av_read_frame(pFFmpeg->formatCtx, pFFmpeg->packet);
+        if (ret < 0) {
             if (ret == AVERROR_EOF) {
-                return MA_AT_END;
-            }
-            else if (ret != AVERROR(EAGAIN)) {
+                // 标记EOF并发送空包刷新解码器
+                pFFmpeg->eofReached = MA_TRUE;
+                avcodec_send_packet(pFFmpeg->codecCtx, NULL);
+            } else {
                 return MA_ERROR;
             }
         } else {
-            // PTSから補正をかける
-            if (pFFmpeg->frame->pts != AV_NOPTS_VALUE){
-                pFFmpeg->cursor = (pFFmpeg->frame->pts * pFFmpeg->codecCtx->sample_rate * pFFmpeg->stream->time_base.num) / pFFmpeg->stream->time_base.den;
-			}
-            pFFmpeg->cursor += pFFmpeg->frame->nb_samples;
-            if (pFFmpeg->frame->format != pFFmpeg->avFormat) {
-                if (pFFmpeg->swrCtx == NULL) {
-                    pFFmpeg->swrCtx = swr_alloc();
-                    if (pFFmpeg->swrCtx == NULL)
-                        return MA_ERROR;
-                    av_opt_set_chlayout(pFFmpeg->swrCtx, "in_chlayout", &pFFmpeg->frame->ch_layout, 0);
-                    av_opt_set_chlayout(pFFmpeg->swrCtx, "out_chlayout", &pFFmpeg->frame->ch_layout, 0);
-                    av_opt_set_int(pFFmpeg->swrCtx, "in_sample_rate", pFFmpeg->frame->sample_rate, 0);
-                    av_opt_set_int(pFFmpeg->swrCtx, "out_sample_rate", pFFmpeg->frame->sample_rate, 0);
-                    av_opt_set_sample_fmt(pFFmpeg->swrCtx, "in_sample_fmt", (enum AVSampleFormat)pFFmpeg->frame->format, 0);
-                    av_opt_set_sample_fmt(pFFmpeg->swrCtx, "out_sample_fmt", pFFmpeg->avFormat, 0);
-                    if (swr_init(pFFmpeg->swrCtx) < 0) {
-                        return MA_ERROR;
-                    }
-                    int swr_buf_len =  av_samples_get_buffer_size(NULL, pFFmpeg->frame->ch_layout.nb_channels, pFFmpeg->frame->sample_rate, pFFmpeg->avFormat, 1);
-                    pFFmpeg->swrBuf = (uint8_t*)av_malloc(swr_buf_len);
-                }
-
-                if (swr_convert(pFFmpeg->swrCtx, &pFFmpeg->swrBuf, pFFmpeg->frame->nb_samples,
-                                    (const uint8_t**)pFFmpeg->frame->extended_data, pFFmpeg->frame->nb_samples) < 0) {
-                    return MA_ERROR;
-                }
-                size_t count = pFFmpeg->frame->nb_samples * pFFmpeg->bitsPerSample * pFFmpeg->frame->ch_layout.nb_channels;
-                ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, pFFmpeg->swrBuf, count);
-            } else {
-                size_t count = pFFmpeg->frame->nb_samples * pFFmpeg->bitsPerSample * pFFmpeg->frame->ch_layout.nb_channels;
-                ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, pFFmpeg->frame->extended_data[0], count);
+            // 正常发送数据包
+            if (avcodec_send_packet(pFFmpeg->codecCtx, pFFmpeg->packet) < 0) {
+                av_packet_unref(pFFmpeg->packet);
+                return MA_ERROR;
             }
+            av_packet_unref(pFFmpeg->packet);
         }
     }
-    av_packet_unref(pFFmpeg->packet);
-    return MA_SUCCESS;
+
+    /*-----------------------------------------------------------
+    第二部分：处理解码帧（含残留帧）
+    -----------------------------------------------------------*/
+    while (1) {
+        ret = avcodec_receive_frame(pFFmpeg->codecCtx, frame);
+        if (ret == AVERROR(EAGAIN)) {
+            return MA_SUCCESS; // 需要更多输入数据
+        } else if (ret == AVERROR_EOF) {
+            return MA_AT_END; // 所有残留帧处理完毕
+        } else if (ret < 0) {
+            return MA_ERROR;
+        }
+
+        /*-------------------------------------------------------
+        第三部分：处理有效帧
+        -------------------------------------------------------*/
+        // 更新播放光标（带PTS补偿）
+        if (frame->pts != AV_NOPTS_VALUE) {
+            pFFmpeg->cursor = (frame->pts * pFFmpeg->codecCtx->sample_rate
+                             * pFFmpeg->stream->time_base.num)
+                             / pFFmpeg->stream->time_base.den;
+        }
+        pFFmpeg->cursor += frame->nb_samples;
+
+        // 格式转换处理
+        if (frame->format != pFFmpeg->avFormat) {
+            if (!pFFmpeg->swrCtx) {
+                // 先释放旧的swrCtx（如果存在）
+                swr_free(&pFFmpeg->swrCtx);
+
+                pFFmpeg->swrCtx = swr_alloc();
+                if (pFFmpeg->swrCtx == NULL) {
+                    return MA_ERROR;
+                }
+                av_opt_set_chlayout(pFFmpeg->swrCtx, "in_chlayout", &pFFmpeg->frame->ch_layout, 0);
+                av_opt_set_chlayout(pFFmpeg->swrCtx, "out_chlayout", &pFFmpeg->frame->ch_layout, 0);
+                av_opt_set_int(pFFmpeg->swrCtx, "in_sample_rate", pFFmpeg->frame->sample_rate, 0);
+                av_opt_set_int(pFFmpeg->swrCtx, "out_sample_rate", pFFmpeg->frame->sample_rate, 0);
+                av_opt_set_sample_fmt(pFFmpeg->swrCtx, "in_sample_fmt", (enum AVSampleFormat)pFFmpeg->frame->format, 0);
+                av_opt_set_sample_fmt(pFFmpeg->swrCtx, "out_sample_fmt", pFFmpeg->avFormat, 0);
+                if (swr_init(pFFmpeg->swrCtx) < 0) {
+                    return MA_ERROR;
+                }
+            }
+
+            // 计算目标缓冲区大小
+            int dst_nb_samples = swr_get_out_samples(pFFmpeg->swrCtx, frame->nb_samples);
+            int buf_size = av_samples_get_buffer_size(
+                NULL, pFFmpeg->codecCtx->ch_layout.nb_channels,
+                dst_nb_samples, pFFmpeg->avFormat, 1
+            );
+
+            // 检查并重新分配缓冲区
+            if (buf_size > pFFmpeg->swrBufSize) {
+                av_buffer_unref(&pFFmpeg->swrBuf);
+                pFFmpeg->swrBuf = av_buffer_alloc(buf_size);
+                if (!pFFmpeg->swrBuf) {
+                    return MA_OUT_OF_MEMORY;
+                }
+                pFFmpeg->swrBufSize = buf_size;
+            }
+
+            // 执行格式转换
+            uint8_t* swr_data = pFFmpeg->swrBuf ? pFFmpeg->swrBuf->data : NULL;
+            int converted = swr_convert(
+                pFFmpeg->swrCtx,
+                &swr_data,
+                dst_nb_samples,
+                (const uint8_t**)frame->extended_data, frame->nb_samples
+            );
+
+            if (converted < 0) {
+                return MA_ERROR;
+            }
+
+            // 将转换后的数据入队
+            size_t data_size = converted * pFFmpeg->bitsPerSample
+                             * pFFmpeg->codecCtx->ch_layout.nb_channels;
+            ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, swr_data, data_size);
+        } else {
+            // 直接入队原始数据
+            size_t data_size = frame->nb_samples * pFFmpeg->bitsPerSample
+                             * pFFmpeg->codecCtx->ch_layout.nb_channels;
+            ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, frame->extended_data[0], data_size);
+        }
+
+        av_frame_unref(frame); // 重要：释放帧引用
+    }
+
+    return MA_SUCCESS; // 永远不会执行到这里
 }
 
 #endif // !MA_NO_FFMPEG
@@ -528,7 +592,9 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
 		if (result != MA_SUCCESS) {
 			return result;
 		}
-
+        pFFmpeg->eofReached = MA_FALSE;
+        pFFmpeg->swrBuf = NULL;
+        pFFmpeg->swrBufSize = 0;
         return MA_SUCCESS;
     }
     #else
@@ -548,13 +614,18 @@ MA_API void ma_ffmpeg_uninit(ma_ffmpeg *pFFmpeg, const ma_allocation_callbacks *
 
     #if !defined(MA_NO_FFMPEG)
     {
-        av_free(pFFmpeg->swrBuf);
         swr_free(&pFFmpeg->swrCtx);
         av_packet_unref(pFFmpeg->packet);
         av_frame_free(&pFFmpeg->frame);
         avcodec_free_context(&pFFmpeg->codecCtx);
         avformat_close_input(&pFFmpeg->formatCtx); // AVIOContextもこれで解放される
         ma_ffmpeg_queue_clear(&pFFmpeg->queue);
+        // 释放重采样缓冲区
+        if (pFFmpeg->swrBuf) {
+            av_buffer_unref(&pFFmpeg->swrBuf);  // 安全减少引用计数
+            pFFmpeg->swrBuf = NULL;             // 防止悬垂指针
+            pFFmpeg->swrBufSize = 0;
+        }
 		ma_mutex_uninit(&pFFmpeg->lock);
     }
     #else
@@ -578,6 +649,11 @@ MA_API ma_result ma_ffmpeg_read_pcm_frames(ma_ffmpeg *pFFmpeg, void *pFramesOut,
     #if !defined(MA_NO_FFMPEG)
     {
 		 ma_mutex_lock(&pFFmpeg->lock);  // 加锁
+        if (pFFmpeg->eofReached) { // 已到 EOF 直接返回
+            ma_mutex_unlock(&pFFmpeg->lock);
+            if (pFramesRead) *pFramesRead = 0;
+            return MA_AT_END;
+        }
         size_t bytesCount = frameCount * pFFmpeg->bitsPerSample * pFFmpeg->codecCtx->ch_layout.nb_channels;
         ma_result ret;
 		ma_result finalResult = MA_SUCCESS; 
@@ -585,6 +661,7 @@ MA_API ma_result ma_ffmpeg_read_pcm_frames(ma_ffmpeg *pFFmpeg, void *pFramesOut,
             ret = decode_one_cycle(pFFmpeg);
             if (ret == MA_AT_END){
                 finalResult = MA_AT_END;
+                pFFmpeg->eofReached = MA_TRUE; // 设置永久标志
 				break;
 			}
         }
@@ -619,7 +696,7 @@ MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg *pFFmpeg, ma_uint64 frame
     {
 		// 加锁
 		ma_mutex_lock(&pFFmpeg->lock);
-		
+        pFFmpeg->eofReached = MA_FALSE;
         ma_uint64 length;
         ma_ffmpeg_get_length_in_pcm_frames(pFFmpeg, &length);
         if (!pFFmpeg->formatCtx || !pFFmpeg->codecCtx || !pFFmpeg->stream || length < frameIndex) {
