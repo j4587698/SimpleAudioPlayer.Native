@@ -533,23 +533,40 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
             return MA_ERROR;
         }
         pFFmpeg->formatCtx->pb = avio_ctx;
-        if (avformat_open_input(&pFFmpeg->formatCtx, NULL, NULL, NULL) < 0) {
+        AVDictionary* options = NULL;
+        av_dict_set_int(&options, "scan_all_pmts", 0, AV_DICT_MATCH_CASE);
+        av_dict_set_int(&options, "probesize", 1024*1024, 0); // 限制探测大小
+        av_dict_set_int(&options, "max_analyze_duration", 1*AV_TIME_BASE, 0); // 限制分析时间1秒
+        if (avformat_open_input(&pFFmpeg->formatCtx, NULL, NULL, &options) < 0) {
+            av_dict_free(&options);
             av_freep(&avio_ctx->buffer);  // 释放AVIOContext的buffer
 			avio_context_free(&avio_ctx); // 显式释放AVIOContext
 			avformat_free_context(pFFmpeg->formatCtx);
             return MA_ERROR;
         }
-        if (avformat_find_stream_info(pFFmpeg->formatCtx, NULL) < 0) {
+        av_dict_free(&options);
+        for (unsigned int i = 0; i < pFFmpeg->formatCtx->nb_streams; i++) {
+            AVStream* stream = pFFmpeg->formatCtx->streams[i];
+            if (stream->codecpar->codec_type != AVMEDIA_TYPE_AUDIO) {
+                stream->discard = AVDISCARD_ALL;
+            }
+        }
+
+        AVDictionary* find_stream_opts = NULL;
+        av_dict_set(&find_stream_opts, "enable_streams", "audio", 0);
+        if (avformat_find_stream_info(pFFmpeg->formatCtx, &find_stream_opts) < 0) {
             avformat_close_input(&pFFmpeg->formatCtx);
             return MA_ERROR;
         }
 
         for (unsigned int i = 0; i < pFFmpeg->formatCtx->nb_streams; i++) {
-            if (pFFmpeg->formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-                pFFmpeg->stream = pFFmpeg->formatCtx->streams[i];
+            AVStream* stream = pFFmpeg->formatCtx->streams[i];
+            if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+                pFFmpeg->stream = stream;
                 break;
             }
         }
+
         if (!pFFmpeg->stream) {
             avformat_close_input(&pFFmpeg->formatCtx);
             return MA_ERROR;

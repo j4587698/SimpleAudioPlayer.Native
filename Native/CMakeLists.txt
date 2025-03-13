@@ -33,7 +33,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #----------------------------------------------------------
 # FFmpeg跨平台编译
 #----------------------------------------------------------
-set(FFMPEG_VERSION "6.1")
+set(FFMPEG_VERSION "7.1")
 set(FFMPEG_INSTALL_DIR "${CMAKE_BINARY_DIR}/ffmpeg_install")
 
 include(ExternalProject)
