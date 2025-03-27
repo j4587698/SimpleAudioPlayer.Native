@@ -59,6 +59,7 @@ set(FFMPEG_BASE_ARGS
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
     --enable-decoder=ape,flac,alac,wavpack,mp3,aac,pcm_s16le,pcm_s24le,pcm_s32le
     --enable-protocol=file,pipe
+	--enable-parser=aac,aac_latm,flac,ape,mp3,alac,wavpack
     #--enable-filter=aformat,anull,atrim
     --disable-shared
     --enable-static
@@ -141,6 +142,7 @@ endif()
 ExternalProject_Add(ffmpeg
     GIT_REPOSITORY "https://github.com/FFmpeg/FFmpeg.git"
     GIT_TAG "n${FFMPEG_VERSION}"
+	GIT_SHALLOW       TRUE
     PREFIX ${CMAKE_BINARY_DIR}/ffmpeg
     CONFIGURE_COMMAND <SOURCE_DIR>/configure ${FFMPEG_BASE_ARGS}
     BUILD_BYPRODUCTS
