@@ -108,6 +108,7 @@ typedef struct
     ma_ffmpeg_queue queue;
 	ma_mutex lock;
     ma_bool32 eofReached;
+    ma_int64 file_size;
 #endif
 } ma_ffmpeg;
 
@@ -177,7 +178,7 @@ static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_siz
 
     result = pFFmpeg->onRead(pFFmpeg->pReadSeekTellUserData, buf, buf_size, &bytesToRead);
     if (result == MA_AT_END) {
-        return 0;
+        return AVERROR_EOF;
     }
     return (result == MA_SUCCESS) ? bytesToRead : -1;
 }
@@ -191,10 +192,11 @@ static int64_t ma_ffmpeg_avio_callback__seek(void* opaque, int64_t offset, int w
     if (!pFFmpeg->onSeek || !pFFmpeg->onTell)
         return AVERROR(EINVAL);
 
+    if (whence == AVSEEK_SIZE) {
+        return pFFmpeg->file_size;
+    }
     if (whence == SEEK_SET) {
         origin = ma_seek_origin_start;
-    } else if (whence == SEEK_END) {
-        origin = ma_seek_origin_end;
     } else if (whence == SEEK_CUR) {
         origin = ma_seek_origin_current;
     } else {
@@ -513,6 +515,14 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
     pFFmpeg->onTell = onTell;
     pFFmpeg->pReadSeekTellUserData = pReadSeekTellUserData;
 
+    if (pFFmpeg->onSeek && pFFmpeg->onTell) {
+        pFFmpeg->onSeek(pFFmpeg->pReadSeekTellUserData, 0, ma_seek_origin_end);
+        pFFmpeg->onTell(pFFmpeg->pReadSeekTellUserData, &pFFmpeg->file_size);
+        pFFmpeg->onSeek(pFFmpeg->pReadSeekTellUserData, 0, ma_seek_origin_start);
+    }else {
+        pFFmpeg->file_size = 0;
+    }
+
     #if !defined(MA_NO_FFMPEG)
     {
         ma_ffmpeg_queue_init(&pFFmpeg->queue); // 一応
@@ -534,7 +544,8 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
         }
         pFFmpeg->formatCtx->pb = avio_ctx;
         AVDictionary* options = NULL;
-        av_dict_set_int(&options, "scan_all_pmts", 0, AV_DICT_MATCH_CASE);
+        av_dict_set(&options, "fflags", "fastseek+discardcorrupt", 0);
+        av_dict_set(&options, "ignore_io_errors", "1", 0);
         av_dict_set_int(&options, "probesize", 1024*1024, 0); // 限制探测大小
         av_dict_set_int(&options, "max_analyze_duration", 1*AV_TIME_BASE, 0); // 限制分析时间1秒
         if (avformat_open_input(&pFFmpeg->formatCtx, NULL, NULL, &options) < 0) {
@@ -719,6 +730,7 @@ MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg *pFFmpeg, ma_uint64 frame
         if (!pFFmpeg->formatCtx || !pFFmpeg->codecCtx || !pFFmpeg->stream || length < frameIndex) {
             return MA_INVALID_ARGS;
         }
+
         AVRational avr = { 1, pFFmpeg->codecCtx->sample_rate };
         int64_t timestamp = av_rescale_q(frameIndex, avr, pFFmpeg->stream->time_base);
         if (av_seek_frame(pFFmpeg->formatCtx, pFFmpeg->stream->index, timestamp, AVSEEK_FLAG_BACKWARD) < 0) {
@@ -741,7 +753,7 @@ MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg *pFFmpeg, ma_uint64 frame
 		} while (pFFmpeg->cursor < frameIndex);
         int popBytes = (frameIndex - (pFFmpeg->cursor - (pFFmpeg->queue.size / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels))) * pFFmpeg->bitsPerSample * pFFmpeg->codecCtx->ch_layout.nb_channels;
         ma_ffmpeg_queue_read(&pFFmpeg->queue, NULL, popBytes, NULL);
-		
+
 		// 解锁
 		ma_mutex_unlock(&pFFmpeg->lock);
         return MA_SUCCESS;
