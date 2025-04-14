@@ -197,7 +197,7 @@ MA_API ma_result get_decoder(AudioContext* ctx, ma_decoder *decoder) {
 	return MA_SUCCESS;
 }
 
-MA_API ma_result get_length_in_pcm_frames(AudioContext* ctx, ma_int64* frames){
+MA_API ma_result get_length_in_pcm_frames(AudioContext* ctx, ma_uint64* frames){
 	if (ctx == NULL){
 		return MA_INVALID_ARGS;
 	}
@@ -205,7 +205,7 @@ MA_API ma_result get_length_in_pcm_frames(AudioContext* ctx, ma_int64* frames){
 	return ma_decoder_get_length_in_pcm_frames(&ctx->decoder, frames);
 }
 
-MA_API ma_result get_cursor_in_pcm_frames(AudioContext* ctx, ma_int64* frames){
+MA_API ma_result get_cursor_in_pcm_frames(AudioContext* ctx, ma_uint64* frames){
 	if (ctx == NULL){
 		return MA_INVALID_ARGS;
 	}
