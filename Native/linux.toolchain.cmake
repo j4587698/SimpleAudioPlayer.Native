@@ -28,7 +28,9 @@ set(CMAKE_CXX_COMPILER "clang++")
 # 通用编译选项
 set(CMAKE_C_FLAGS "--target=${LLVM_TARGET_TRIPLE} -fPIC")
 set(CMAKE_CXX_FLAGS "--target=${LLVM_TARGET_TRIPLE} -fPIC")
-set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld")  # 使用 LLD 链接器
+set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld --target=${LLVM_TARGET_TRIPLE}")  # 使用 LLD 链接器
+
+set(CMAKE_STRIP llvm-strip)
 
 # ARM优化
 if("${CROSS_ARCH}" STREQUAL "arm")
