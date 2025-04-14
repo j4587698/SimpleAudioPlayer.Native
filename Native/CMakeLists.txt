@@ -126,8 +126,14 @@ elseif(APPLE)
 elseif(LINUX)
 	list(APPEND FFMPEG_BASE_ARGS
 		--arch=${CROSS_ARCH}
-		--cross-prefix=${TOOLCHAIN_PREFIX}-
+		--cross-prefix=${LLVM_TARGET_TRIPLE}-
 		--target-os=linux
+		--cc=${CMAKE_C_COMPILER}
+        			--cxx=${CMAKE_CXX_COMPILER}
+        			--ld=${CMAKE_C_COMPILER}
+        			--ar=${CMAKE_AR}
+        			--extra-cflags=${CMAKE_C_FLAGS}
+        			--extra-ldflags=${CMAKE_EXE_LINKER_FLAGS}
 	)
 	if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
 		list(APPEND FFMPEG_BASE_ARGS

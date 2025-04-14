@@ -14,7 +14,7 @@ foreach(PAIR IN LISTS LINUX_ARCH_MAP)
     list(GET PAIR_LIST 0 KEY)
     list(GET PAIR_LIST 1 VALUE)
     if("${CROSS_ARCH}" STREQUAL "${KEY}")
-        set(TOOLCHAIN_PREFIX "${VALUE}")
+        set(LLVM_TARGET_TRIPLE "${VALUE}")
         break()
     endif()
 endforeach()
@@ -22,12 +22,13 @@ endforeach()
 set(CMAKE_SYSTEM_NAME Linux)
 
 # 编译器路径
-set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}-gcc)
-set(CMAKE_CXX_COMPILER ${TOOLCHAIN_PREFIX}-g++)
+set(CMAKE_C_COMPILER "clang")
+set(CMAKE_CXX_COMPILER "clang++")
 
 # 通用编译选项
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_C_FLAGS "--target=${LLVM_TARGET_TRIPLE} -fPIC")
+set(CMAKE_CXX_FLAGS "--target=${LLVM_TARGET_TRIPLE} -fPIC")
+set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld")  # 使用 LLD 链接器
 
 # ARM优化
 if("${CROSS_ARCH}" STREQUAL "arm")
