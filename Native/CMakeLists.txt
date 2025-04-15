@@ -240,8 +240,7 @@ elseif(ANDROID)
         set(CMAKE_AR "${ANDROID_TOOLCHAIN_ROOT}/bin/llvm-ar" CACHE FILEPATH "AR" FORCE)
         set(CMAKE_RANLIB "${ANDROID_TOOLCHAIN_ROOT}/bin/llvm-ranlib" CACHE FILEPATH "RANLIB" FORCE)
 	endif()
-	add_definitions(-DMA_NO_RUNTIME_LINKING)
-    target_link_libraries(audio_player PRIVATE log OpenSLES)
+    target_link_libraries(audio_player PRIVATE log)
 endif()
 
 # 通用优化
