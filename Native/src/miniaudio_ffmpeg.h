@@ -863,18 +863,41 @@ MA_API ma_result ma_ffmpeg_get_length_in_pcm_frames(ma_ffmpeg *pFFmpeg, ma_uint6
 
     #if !defined(MA_NO_FFMPEG)
     {
-        if (!pFFmpeg->stream) {
+        // 参数检查
+        if (!pFFmpeg || !pFFmpeg->formatCtx || !pFFmpeg->stream || !pLength) {
             return MA_INVALID_ARGS;
         }
-
-        if (pFFmpeg->stream->nb_frames) {
-            *pLength = pFFmpeg->stream->nb_frames;
+    
+        AVFormatContext *fmt_ctx = pFFmpeg->formatCtx;
+        AVStream *stream = pFFmpeg->stream;
+        AVCodecParameters *codecpar = stream->codecpar;
+    
+        // 方法 1：优先使用 duration × sample_rate
+        if (stream->duration != AV_NOPTS_VALUE && codecpar->sample_rate > 0) {
+            *pLength = (ma_uint64)(av_q2d(stream->time_base) * stream->duration * codecpar->sample_rate);
             return MA_SUCCESS;
         }
-        if (pFFmpeg->stream->duration != AV_NOPTS_VALUE && pFFmpeg->stream->codecpar->sample_rate != 0) {
-            *pLength =
-                (pFFmpeg->stream->duration * pFFmpeg->stream->codecpar->sample_rate * pFFmpeg->stream->time_base.num) /
-                pFFmpeg->stream->time_base.den;
+
+	    // 流时长无效时，回退到容器时长
+        if (fmt_ctx->duration != AV_NOPTS_VALUE && codecpar->sample_rate > 0) {
+            double duration_seconds = (double)fmt_ctx->duration / AV_TIME_BASE;
+            *pLength = (ma_uint64)(duration_seconds * codecpar->sample_rate);
+            return MA_SUCCESS;
+        }
+    
+        // 方法 2：基于 nb_frames 和每帧采样数
+        ma_uint64 samples_per_frame = 0;
+        switch (codecpar->codec_id) {
+            case AV_CODEC_ID_AAC:  samples_per_frame = 1024; break;
+            case AV_CODEC_ID_MP3:  samples_per_frame = 1152; break;
+            case AV_CODEC_ID_FLAC: samples_per_frame = codecpar->frame_size; break;
+            case AV_CODEC_ID_ALAC: samples_per_frame = 4096; break;
+            case AV_CODEC_ID_OPUS: samples_per_frame = 120 * codecpar->sample_rate / 1000; break;
+            default: samples_per_frame = 0;
+        }
+    
+        if (samples_per_frame > 0 && stream->nb_frames > 0) {
+            *pLength = stream->nb_frames * samples_per_frame;
             return MA_SUCCESS;
         }
 
