@@ -1,1 +1,3 @@
-/SimpleAudioPlayer.Native/bin/
+**/bin/
+**/obj/
+build/

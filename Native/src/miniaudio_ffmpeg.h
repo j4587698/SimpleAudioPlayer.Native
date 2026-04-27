@@ -62,24 +62,18 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libswresample/swresample.h>
 
-// queue
-typedef struct ma_ffmpeg_queue_node
-{
-    void* data;
-    size_t size;
-    struct ma_ffmpeg_queue_node* next;
-} ma_ffmpeg_queue_node;
-
 typedef struct
 {
+    ma_uint8* data;
+    size_t capacity;
     size_t size;
-    size_t cursor;
-    ma_ffmpeg_queue_node* front;
-    ma_ffmpeg_queue_node* rear;
+    size_t readPos;
+    size_t writePos;
 } ma_ffmpeg_queue;
 
 static void ma_ffmpeg_queue_init(ma_ffmpeg_queue* queue);
 static void ma_ffmpeg_queue_clear(ma_ffmpeg_queue* queue);
+static void ma_ffmpeg_queue_uninit(ma_ffmpeg_queue* queue);
 static ma_result ma_ffmpeg_queue_enqueue(ma_ffmpeg_queue* queue, void* data, size_t size);
 static ma_result ma_ffmpeg_queue_read(ma_ffmpeg_queue* queue, void* data, size_t size, size_t* readSize);
 #endif // !MA_NO_FFMPEG
@@ -97,6 +91,7 @@ typedef struct
     uint8_t bitsPerSample;
     enum AVSampleFormat avFormat;
     AVFormatContext* formatCtx;
+    AVIOContext* avioCtx;
     AVCodecContext* codecCtx;
     AVStream* stream;
     AVFrame* frame;
@@ -170,9 +165,9 @@ static ma_data_source_vtable g_ma_ffmpeg_ds_vtable =
 static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_size) {
     ma_ffmpeg* pFFmpeg = (ma_ffmpeg*)opaque;
     ma_result result;
-    size_t bytesToRead;
+	size_t bytesToRead = 0;
 	
-    if (!pFFmpeg->onRead || !buf_size) {
+    if (!pFFmpeg || !pFFmpeg->onRead || !buf || buf_size <= 0) {
         return -1;
     }
 
@@ -180,7 +175,16 @@ static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_siz
     if (result == MA_AT_END) {
         return AVERROR_EOF;
     }
-    return (result == MA_SUCCESS) ? bytesToRead : -1;
+    if (result != MA_SUCCESS) {
+        return AVERROR(EIO);
+    }
+    if (bytesToRead == 0) {
+        return AVERROR_EOF;
+    }
+    if (bytesToRead > (size_t)buf_size) {
+        bytesToRead = (size_t)buf_size;
+    }
+    return (int)bytesToRead;
 }
 
 static int64_t ma_ffmpeg_avio_callback__seek(void* opaque, int64_t offset, int whence) {
@@ -195,10 +199,13 @@ static int64_t ma_ffmpeg_avio_callback__seek(void* opaque, int64_t offset, int w
     if (whence == AVSEEK_SIZE) {
         return pFFmpeg->file_size;
     }
+    whence &= ~AVSEEK_FORCE;
     if (whence == SEEK_SET) {
         origin = ma_seek_origin_start;
     } else if (whence == SEEK_CUR) {
         origin = ma_seek_origin_current;
+    } else if (whence == SEEK_END) {
+        origin = ma_seek_origin_end;
     } else {
         return AVERROR(ENOSYS);
     }
@@ -215,106 +222,150 @@ static int64_t ma_ffmpeg_avio_callback__seek(void* opaque, int64_t offset, int w
 
     return cursor;
 }
+
+static void ma_ffmpeg_free_avio(ma_ffmpeg* pFFmpeg) {
+    if (pFFmpeg && pFFmpeg->avioCtx) {
+        av_freep(&pFFmpeg->avioCtx->buffer);
+        avio_context_free(&pFFmpeg->avioCtx);
+    }
+}
+
+static void ma_ffmpeg_close_input(ma_ffmpeg* pFFmpeg) {
+    if (!pFFmpeg) {
+        return;
+    }
+
+    if (pFFmpeg->formatCtx) {
+        avformat_close_input(&pFFmpeg->formatCtx);
+    }
+    ma_ffmpeg_free_avio(pFFmpeg);
+}
 // avio callback
 
 // queue
 static void ma_ffmpeg_queue_init(ma_ffmpeg_queue* queue) {
+    queue->data = NULL;
+    queue->capacity = 0;
     queue->size = 0;
-    queue->cursor = 0;
-    queue->front = NULL;
-    queue->rear = NULL;
+    queue->readPos = 0;
+    queue->writePos = 0;
 }
 
 static void ma_ffmpeg_queue_clear(ma_ffmpeg_queue* queue) {
-    ma_ffmpeg_queue_node* node;
+    queue->size = 0;
+    queue->readPos = 0;
+    queue->writePos = 0;
+}
 
-    while(queue->front) {
-        node = queue->front;
-        queue->front = node->next;
-        free(node->data);
-        free(node);
+static void ma_ffmpeg_queue_uninit(ma_ffmpeg_queue* queue) {
+    if (!queue) {
+        return;
     }
 
-    queue->size = 0;
-    queue->cursor = 0;
-    queue->front = NULL;
-    queue->rear = NULL;
+    free(queue->data);
+    queue->data = NULL;
+    queue->capacity = 0;
+    ma_ffmpeg_queue_clear(queue);
+}
+
+static ma_result ma_ffmpeg_queue_ensure_capacity(ma_ffmpeg_queue* queue, size_t required) {
+    if (required <= queue->capacity) {
+        return MA_SUCCESS;
+    }
+
+    size_t newCapacity = queue->capacity > 0 ? queue->capacity : 4096;
+    while (newCapacity < required) {
+        if (newCapacity > ((size_t)-1) / 2) {
+            return MA_OUT_OF_MEMORY;
+        }
+        newCapacity *= 2;
+    }
+
+    ma_uint8* newData = (ma_uint8*)malloc(newCapacity);
+    if (!newData) {
+        return MA_OUT_OF_MEMORY;
+    }
+
+    if (queue->size > 0 && queue->data) {
+        size_t first = queue->size;
+        if (queue->readPos + first > queue->capacity) {
+            first = queue->capacity - queue->readPos;
+        }
+        memcpy(newData, queue->data + queue->readPos, first);
+        if (first < queue->size) {
+            memcpy(newData + first, queue->data, queue->size - first);
+        }
+    }
+
+    free(queue->data);
+    queue->data = newData;
+    queue->capacity = newCapacity;
+    queue->readPos = 0;
+    queue->writePos = queue->size;
+    if (queue->writePos == queue->capacity) {
+        queue->writePos = 0;
+    }
+
+    return MA_SUCCESS;
 }
 
 static ma_result ma_ffmpeg_queue_enqueue(ma_ffmpeg_queue* queue, void* data, size_t size) {
-    ma_ffmpeg_queue_node* node = (ma_ffmpeg_queue_node*)malloc(sizeof(ma_ffmpeg_queue_node));
-
-    if (!node) {
-        return MA_OUT_OF_MEMORY;
+    if (!queue || (!data && size > 0)) {
+        return MA_INVALID_ARGS;
     }
-    node->data = malloc(size);
-    if (!node->data) {
-        free(node);
-        return MA_OUT_OF_MEMORY;
+    if (size == 0) {
+        return MA_SUCCESS;
     }
 
-    memcpy(node->data, data, size);
-    node->size = size;
-    node->next = NULL;
-
-    if (!queue->rear) {
-        queue->front = node;
-        queue->rear = node;
-    } else {
-        queue->rear->next = node;
-        queue->rear = node;
+    ma_result result = ma_ffmpeg_queue_ensure_capacity(queue, queue->size + size);
+    if (result != MA_SUCCESS) {
+        return result;
     }
 
+    size_t first = size;
+    if (queue->writePos + first > queue->capacity) {
+        first = queue->capacity - queue->writePos;
+    }
+    memcpy(queue->data + queue->writePos, data, first);
+    if (first < size) {
+        memcpy(queue->data, (ma_uint8*)data + first, size - first);
+    }
+
+    queue->writePos = (queue->writePos + size) % queue->capacity;
     queue->size += size;
 
     return MA_SUCCESS;
 }
 
 static ma_result ma_ffmpeg_queue_read(ma_ffmpeg_queue* queue, void* data, size_t size, size_t* readSize) {
-    size_t readed = 0;
     if (readSize)
         *readSize = 0;
 
-    if (!queue->front)
+    if (!queue || queue->size == 0)
         return MA_ERROR;
 
-    while(queue->front) {
-        ma_ffmpeg_queue_node* node = queue->front;
+    size_t toRead = size < queue->size ? size : queue->size;
+    size_t first = toRead;
+    if (queue->readPos + first > queue->capacity) {
+        first = queue->capacity - queue->readPos;
+    }
 
-        if ((node->size - queue->cursor) + readed > size) {
-            // 途中まで読む
-            size_t rSize = size - readed;
+    if (data && first > 0) {
+        memcpy(data, queue->data + queue->readPos, first);
+    }
+    if (data && first < toRead) {
+        memcpy((ma_uint8*)data + first, queue->data, toRead - first);
+    }
 
-            if (data)
-                memcpy((ma_uint8*)data + readed, (ma_uint8*)node->data + queue->cursor, rSize);
-
-            queue->size -= rSize;
-            queue->cursor = queue->cursor + rSize;
-            readed += rSize;
-
-            break;
-        } else {
-            size_t rSize = node->size - queue->cursor;
-            // 完全に読んで、抜ける
-
-            if (data)
-                memcpy((ma_uint8*)data + readed, (ma_uint8*)node->data + queue->cursor, rSize);
-
-            queue->front = node->next;
-            queue->size -= rSize;
-            queue->cursor = 0;
-            readed += rSize;
-
-            free(node->data);
-            free(node);
-
-            if (queue->front == NULL)
-                queue->rear = NULL;
-        }
+    queue->readPos = (queue->readPos + toRead) % queue->capacity;
+    queue->size -= toRead;
+    if (queue->size == 0) {
+        queue->readPos = 0;
+        queue->writePos = 0;
     }
 
     if (readSize)
-        *readSize = readed;
+        *readSize = toRead;
 
     return MA_SUCCESS;
 }
@@ -340,6 +391,11 @@ static ma_result decode_one_cycle(ma_ffmpeg* pFFmpeg) {
                 return MA_ERROR;
             }
         } else {
+            if (pFFmpeg->packet->stream_index != pFFmpeg->stream->index) {
+                av_packet_unref(pFFmpeg->packet);
+                return MA_SUCCESS;
+            }
+
             // 正常发送数据包
             if (avcodec_send_packet(pFFmpeg->codecCtx, pFFmpeg->packet) < 0) {
                 av_packet_unref(pFFmpeg->packet);
@@ -427,12 +483,20 @@ static ma_result decode_one_cycle(ma_ffmpeg* pFFmpeg) {
             // 将转换后的数据入队
             size_t data_size = converted * pFFmpeg->bitsPerSample
                              * pFFmpeg->codecCtx->ch_layout.nb_channels;
-            ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, swr_data, data_size);
+            ma_result queueResult = ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, swr_data, data_size);
+            if (queueResult != MA_SUCCESS) {
+                av_frame_unref(frame);
+                return queueResult;
+            }
         } else {
             // 直接入队原始数据
             size_t data_size = frame->nb_samples * pFFmpeg->bitsPerSample
                              * pFFmpeg->codecCtx->ch_layout.nb_channels;
-            ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, frame->extended_data[0], data_size);
+            ma_result queueResult = ma_ffmpeg_queue_enqueue(&pFFmpeg->queue, frame->extended_data[0], data_size);
+            if (queueResult != MA_SUCCESS) {
+                av_frame_unref(frame);
+                return queueResult;
+            }
         }
 
         av_frame_unref(frame); // 重要：释放帧引用
@@ -501,13 +565,13 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
     (void)pAllocationCallbacks;
     (void)pConfig;
 
+    if (pFFmpeg == NULL || onRead == NULL || onSeek == NULL || onTell == NULL) {
+        return MA_INVALID_ARGS;
+    }
+
     result = ma_ffmpeg_init_internal(pConfig, pFFmpeg);
     if (result != MA_SUCCESS) {
         return result;
-    }
-
-    if (onRead == NULL || onSeek == NULL || onTell == NULL) {
-        return MA_INVALID_ARGS;
     }
 
     pFFmpeg->onRead = onRead;
@@ -543,16 +607,18 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
             return MA_ERROR;
         }
         pFFmpeg->formatCtx->pb = avio_ctx;
+        pFFmpeg->avioCtx = avio_ctx;
         AVDictionary* options = NULL;
         av_dict_set(&options, "fflags", "fastseek+discardcorrupt", 0);
         av_dict_set(&options, "ignore_io_errors", "1", 0);
         av_dict_set_int(&options, "probesize", 1024*1024, 0); // 限制探测大小
         av_dict_set_int(&options, "max_analyze_duration", 1*AV_TIME_BASE, 0); // 限制分析时间1秒
-        if (avformat_open_input(&pFFmpeg->formatCtx, NULL, NULL, &options) < 0) {
+        int open_result = avformat_open_input(&pFFmpeg->formatCtx, NULL, NULL, &options);
+        if (open_result < 0) {
             av_dict_free(&options);
-            av_freep(&avio_ctx->buffer);  // 释放AVIOContext的buffer
-			avio_context_free(&avio_ctx); // 显式释放AVIOContext
+            ma_ffmpeg_free_avio(pFFmpeg);
 			avformat_free_context(pFFmpeg->formatCtx);
+            pFFmpeg->formatCtx = NULL;
             return MA_ERROR;
         }
         av_dict_free(&options);
@@ -563,10 +629,9 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
             }
         }
 
-        AVDictionary* find_stream_opts = NULL;
-        av_dict_set(&find_stream_opts, "enable_streams", "audio", 0);
-        if (avformat_find_stream_info(pFFmpeg->formatCtx, &find_stream_opts) < 0) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+        int stream_info_result = avformat_find_stream_info(pFFmpeg->formatCtx, NULL);
+        if (stream_info_result < 0) {
+            ma_ffmpeg_close_input(pFFmpeg);
             return MA_ERROR;
         }
 
@@ -579,38 +644,40 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
         }
 
         if (!pFFmpeg->stream) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+            ma_ffmpeg_close_input(pFFmpeg);
             return MA_ERROR;
         }
         const AVCodec* codec = avcodec_find_decoder(pFFmpeg->stream->codecpar->codec_id);
         if (!codec) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+            ma_ffmpeg_close_input(pFFmpeg);
             return MA_ERROR;
         }
         pFFmpeg->codecCtx = avcodec_alloc_context3(codec);
         if (!pFFmpeg->codecCtx) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+            ma_ffmpeg_close_input(pFFmpeg);
             return MA_ERROR;
         }
-        if (avcodec_parameters_to_context(pFFmpeg->codecCtx, pFFmpeg->stream->codecpar) < 0) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+        int params_result = avcodec_parameters_to_context(pFFmpeg->codecCtx, pFFmpeg->stream->codecpar);
+        if (params_result < 0) {
+            ma_ffmpeg_close_input(pFFmpeg);
             avcodec_free_context(&pFFmpeg->codecCtx);
             return MA_ERROR;
         }
-        if (avcodec_open2(pFFmpeg->codecCtx, codec, NULL) < 0) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+        int codec_open_result = avcodec_open2(pFFmpeg->codecCtx, codec, NULL);
+        if (codec_open_result < 0) {
+            ma_ffmpeg_close_input(pFFmpeg);
             avcodec_free_context(&pFFmpeg->codecCtx);
             return MA_ERROR;
         }
         pFFmpeg->frame = av_frame_alloc();
         if (!pFFmpeg->frame) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+            ma_ffmpeg_close_input(pFFmpeg);
             avcodec_free_context(&pFFmpeg->codecCtx);
             return MA_ERROR;
         }
         pFFmpeg->packet = av_packet_alloc();
         if (!pFFmpeg->packet) {
-            avformat_close_input(&pFFmpeg->formatCtx);
+            ma_ffmpeg_close_input(pFFmpeg);
             avcodec_free_context(&pFFmpeg->codecCtx);
             av_frame_free(&pFFmpeg->frame);
             return MA_ERROR;
@@ -618,6 +685,10 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
 		// 初始化互斥锁
 		ma_result result = ma_mutex_init(&pFFmpeg->lock);
 		if (result != MA_SUCCESS) {
+			av_packet_free(&pFFmpeg->packet);
+			av_frame_free(&pFFmpeg->frame);
+			avcodec_free_context(&pFFmpeg->codecCtx);
+			ma_ffmpeg_close_input(pFFmpeg);
 			return result;
 		}
         pFFmpeg->eofReached = MA_FALSE;
@@ -646,8 +717,8 @@ MA_API void ma_ffmpeg_uninit(ma_ffmpeg *pFFmpeg, const ma_allocation_callbacks *
         av_packet_unref(pFFmpeg->packet);
         av_frame_free(&pFFmpeg->frame);
         avcodec_free_context(&pFFmpeg->codecCtx);
-        avformat_close_input(&pFFmpeg->formatCtx); // AVIOContextもこれで解放される
-        ma_ffmpeg_queue_clear(&pFFmpeg->queue);
+        ma_ffmpeg_close_input(pFFmpeg);
+        ma_ffmpeg_queue_uninit(&pFFmpeg->queue);
         // 释放重采样缓冲区
         if (pFFmpeg->swrBuf) {
             av_buffer_unref(&pFFmpeg->swrBuf);  // 安全减少引用计数
@@ -691,14 +762,24 @@ MA_API ma_result ma_ffmpeg_read_pcm_frames(ma_ffmpeg *pFFmpeg, void *pFramesOut,
                 finalResult = MA_AT_END;
                 pFFmpeg->eofReached = MA_TRUE; // 设置永久标志
 				break;
+			} else if (ret != MA_SUCCESS) {
+				ma_mutex_unlock(&pFFmpeg->lock);
+				return ret;
 			}
         }
 
         size_t readBytes;
-        ma_ffmpeg_queue_read(&pFFmpeg->queue, pFramesOut, bytesCount, &readBytes);
-        *pFramesRead = readBytes / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels;
+        ma_result readResult = ma_ffmpeg_queue_read(&pFFmpeg->queue, pFramesOut, bytesCount, &readBytes);
+        if (readResult != MA_SUCCESS) {
+            ma_mutex_unlock(&pFFmpeg->lock);
+            return finalResult == MA_AT_END ? MA_AT_END : readResult;
+        }
+		ma_uint64 framesRead = readBytes / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels;
+        if (pFramesRead) {
+            *pFramesRead = framesRead;
+        }
 		ma_mutex_unlock(&pFFmpeg->lock);  // 解锁
-        return (*pFramesRead > 0) ? MA_SUCCESS : finalResult;
+        return (framesRead > 0) ? MA_SUCCESS : finalResult;
     }
     #else
     {
@@ -722,19 +803,22 @@ MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg *pFFmpeg, ma_uint64 frame
 
     #if !defined(MA_NO_FFMPEG)
     {
+		ma_result result = MA_SUCCESS;
 		// 加锁
 		ma_mutex_lock(&pFFmpeg->lock);
         pFFmpeg->eofReached = MA_FALSE;
-        ma_uint64 length;
-        ma_ffmpeg_get_length_in_pcm_frames(pFFmpeg, &length);
-        if (!pFFmpeg->formatCtx || !pFFmpeg->codecCtx || !pFFmpeg->stream || length < frameIndex) {
-            return MA_INVALID_ARGS;
+        ma_uint64 length = 0;
+        result = ma_ffmpeg_get_length_in_pcm_frames(pFFmpeg, &length);
+        if (result != MA_SUCCESS || !pFFmpeg->formatCtx || !pFFmpeg->codecCtx || !pFFmpeg->stream || frameIndex > length) {
+			result = MA_INVALID_ARGS;
+			goto done;
         }
 
         AVRational avr = { 1, pFFmpeg->codecCtx->sample_rate };
         int64_t timestamp = av_rescale_q(frameIndex, avr, pFFmpeg->stream->time_base);
         if (av_seek_frame(pFFmpeg->formatCtx, pFFmpeg->stream->index, timestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-            return MA_ERROR;
+			result = MA_ERROR;
+			goto done;
         }
 
         avcodec_flush_buffers(pFFmpeg->codecCtx);
@@ -748,15 +832,22 @@ MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg *pFFmpeg, ma_uint64 frame
 			ret = decode_one_cycle(pFFmpeg);
 			if (ret != MA_SUCCESS) {
 				if (ret == MA_AT_END) break;
-				return ret;
+                result = ret;
+                goto done;
 			}
 		} while (pFFmpeg->cursor < frameIndex);
-        int popBytes = (frameIndex - (pFFmpeg->cursor - (pFFmpeg->queue.size / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels))) * pFFmpeg->bitsPerSample * pFFmpeg->codecCtx->ch_layout.nb_channels;
-        ma_ffmpeg_queue_read(&pFFmpeg->queue, NULL, popBytes, NULL);
+        ma_uint64 queueFrames = pFFmpeg->queue.size / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels;
+        ma_uint64 queueStart = (pFFmpeg->cursor > queueFrames) ? (pFFmpeg->cursor - queueFrames) : 0;
+        if (frameIndex > queueStart) {
+            ma_uint64 popFrames = frameIndex - queueStart;
+            size_t popBytes = (size_t)(popFrames * pFFmpeg->bitsPerSample * pFFmpeg->codecCtx->ch_layout.nb_channels);
+            ma_ffmpeg_queue_read(&pFFmpeg->queue, NULL, popBytes, NULL);
+        }
 
+    done:
 		// 解锁
 		ma_mutex_unlock(&pFFmpeg->lock);
-        return MA_SUCCESS;
+        return result;
     }
     #else
     {
@@ -837,7 +928,8 @@ MA_API ma_result ma_ffmpeg_get_cursor_in_pcm_frames(ma_ffmpeg* pFFmpeg, ma_uint6
         }
 
         // queueに積んである分だけcursorがズレてる
-        *pCursor = pFFmpeg->cursor - (pFFmpeg->queue.size / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels);
+        ma_uint64 queueFrames = pFFmpeg->queue.size / pFFmpeg->bitsPerSample / pFFmpeg->codecCtx->ch_layout.nb_channels;
+        *pCursor = (pFFmpeg->cursor > queueFrames) ? (pFFmpeg->cursor - queueFrames) : 0;
 
         return MA_SUCCESS;
     }

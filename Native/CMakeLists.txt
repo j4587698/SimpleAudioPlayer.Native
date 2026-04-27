@@ -53,13 +53,14 @@ set(FFMPEG_BASE_ARGS
     --disable-zlib
     --disable-bzlib
     --disable-lzma
+	--disable-autodetect
 	--disable-asm
 	--disable-vulkan
     --disable-everything
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
-    --enable-decoder=ape,flac,alac,wavpack,mp3,aac,pcm_s16le,pcm_s24le,pcm_s32le
+	--enable-decoder=ape,flac,alac,wavpack,mp3,aac,vorbis,opus,pcm_s16le,pcm_s24le,pcm_s32le
     --enable-protocol=file,pipe
-	--enable-parser=aac,aac_latm,flac,ape,mp3,alac,wavpack
+	--enable-parser=aac,aac_latm,flac,ape,mp3,alac,wavpack,vorbis,opus
     #--enable-filter=aformat,anull,atrim
     --disable-shared
     --enable-static
@@ -73,6 +74,14 @@ if(WINDOWS)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=mingw32
         --cross-prefix=${TOOLCHAIN_PREFIX}-
+		--cc=${CMAKE_C_COMPILER}
+		--cxx=${CMAKE_CXX_COMPILER}
+		--ld=${CMAKE_C_COMPILER}
+		--ar=${CMAKE_AR}
+		--ranlib=${CMAKE_RANLIB}
+		--nm=${CMAKE_NM}
+		--strip=${CMAKE_STRIP}
+		--windres=${CMAKE_RC_COMPILER}
         --arch=${CROSS_ARCH}
     )
 elseif(ANDROID)
@@ -151,6 +160,7 @@ ExternalProject_Add(ffmpeg
 	GIT_SHALLOW       TRUE
     PREFIX ${CMAKE_BINARY_DIR}/ffmpeg
     CONFIGURE_COMMAND <SOURCE_DIR>/configure ${FFMPEG_BASE_ARGS}
+	INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install-libs install-headers
     BUILD_BYPRODUCTS
         ${FFMPEG_INSTALL_DIR}/lib/libavcodec.a
         ${FFMPEG_INSTALL_DIR}/lib/libavformat.a
@@ -183,9 +193,13 @@ target_link_libraries(audio_player PRIVATE
 # 平台特定链接
 if(WINDOWS)
     target_link_libraries(audio_player PRIVATE
-        ole32 ws2_32 secur32 bcrypt
+		-Wl,-Bstatic
+		winpthread
+		-Wl,-Bdynamic
+		ole32 ws2_32 secur32 bcrypt
     )
     target_link_options(audio_player PRIVATE
+		-static-libgcc
         -Wl,--kill-at
         -Wl,--output-def=${CMAKE_BINARY_DIR}/audio_player.def
     )
@@ -245,6 +259,7 @@ endif()
 
 # 通用优化
 target_compile_definitions(audio_player PRIVATE
+	AUDIO_PLAYER_BUILD
     MA_NO_WAV
     MA_NO_MP3
     MA_NO_FLAC
@@ -274,4 +289,6 @@ install(TARGETS audio_player
 		RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY include/ DESTINATION include)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include")
+	install(DIRECTORY include/ DESTINATION include)
+endif()
