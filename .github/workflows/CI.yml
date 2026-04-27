@@ -255,11 +255,15 @@ jobs:
       with:
         dotnet-version: 8.0.x
         
-    - name: Publish NuGet Packages
-      id: publish_nuget
-      uses: tedd/publish-nuget-neo@v1.0.2
-      with:
-        NUGET_KEY: ${{secrets.NUGET_API_KEY}}
-        PACKAGE_NAME: Jx.SimpleAudioPlayer.Natvie
-        PROJECT_FILE_PATH: ${{ env.NATIVE_PROJECT_DIR }}/SimpleAudioPlayer.Native.csproj
+    - name: Pack NuGet Package
+      run: dotnet pack "${{ env.NATIVE_PROJECT_DIR }}/SimpleAudioPlayer.Native.csproj" -c Release -o "${{ env.NATIVE_PROJECT_DIR }}/nupkg"
+
+    - name: Publish NuGet Package
+      run: |
+        for package in "${{ env.NATIVE_PROJECT_DIR }}"/nupkg/*.nupkg; do
+          dotnet nuget push "$package" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --skip-duplicate
+        done
     
