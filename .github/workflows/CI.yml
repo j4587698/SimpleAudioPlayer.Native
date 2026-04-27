@@ -256,7 +256,7 @@ jobs:
         dotnet-version: 8.0.x
         
     - name: Pack NuGet Package
-      run: dotnet pack "${{ env.NATIVE_PROJECT_DIR }}/SimpleAudioPlayer.Native.csproj" -c Release -o "${{ env.NATIVE_PROJECT_DIR }}/nupkg"
+      run: dotnet pack "${{ env.NATIVE_PROJECT_DIR }}/SimpleAudioPlayer.Native.csproj" -c Release -p:PackageId=SimpleAudioPlayer.Native -o "${{ env.NATIVE_PROJECT_DIR }}/nupkg"
 
     - name: Publish NuGet Package
       run: |
