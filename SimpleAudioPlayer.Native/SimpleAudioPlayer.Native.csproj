@@ -9,10 +9,11 @@
         <Description>Simple Audio Player Native with miniaudio and ffmpeg</Description>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <IncludeBuildOutput>false</IncludeBuildOutput>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
         <PackageLicenseExpression>LGPL-2.1-or-later</PackageLicenseExpression>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageProjectUrl>https://github.com/j4587698/SimpleAudioPlayer</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/j4587698/SimpleAudioPlayer</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/j4587698/SimpleAudioPlayer.Native</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/j4587698/SimpleAudioPlayer.Native</RepositoryUrl>
         <PackageTags>audio miniaudio ffmpeg player</PackageTags>
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>default</LangVersion>
