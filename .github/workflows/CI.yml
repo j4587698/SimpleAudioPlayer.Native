@@ -198,6 +198,26 @@ jobs:
         mkdir -p $ARTIFACT_DIR/android-${{ matrix.abi }}
         cp $BUILD_DIR/android-${{ matrix.abi }}/lib/*.so $ARTIFACT_DIR/android-${{ matrix.abi }}/
 
+    - name: Verify 16 KB ELF alignment
+      run: |
+        readelf="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+        so_file="$ARTIFACT_DIR/android-${{ matrix.abi }}/libaudio_player.so"
+        "$readelf" -lW "$so_file" | awk '
+          $1 == "LOAD" {
+            if ($NF != "0x4000") {
+              printf("Invalid LOAD alignment for %s: %s\n", file, $NF)
+              exit 1
+            }
+            found = 1
+          }
+          END {
+            if (!found) {
+              printf("No LOAD segment found for %s\n", file)
+              exit 1
+            }
+          }
+        ' file="$so_file"
+
     - uses: actions/upload-artifact@v4
       with:
         name: android-${{ matrix.abi }}
@@ -286,4 +306,3 @@ jobs:
             --api-key "${{ secrets.NUGET_API_KEY }}" \
             --skip-duplicate
         done
-    
