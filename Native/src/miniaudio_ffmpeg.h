@@ -78,6 +78,7 @@ static ma_result ma_ffmpeg_queue_enqueue(ma_ffmpeg_queue* queue, void* data, siz
 static ma_result ma_ffmpeg_queue_read(ma_ffmpeg_queue* queue, void* data, size_t size, size_t* readSize);
 #endif // !MA_NO_FFMPEG
 
+typedef ma_result (*ma_ffmpeg_length_proc)(void* pUserData, ma_int64* pLength);
 
 typedef struct
 {
@@ -85,7 +86,9 @@ typedef struct
     ma_read_proc onRead;
     ma_seek_proc onSeek;
     ma_tell_proc onTell;
+    ma_ffmpeg_length_proc onGetLength;
     void* pReadSeekTellUserData;
+    ma_bool32 isSeekable;
     ma_format format;
 #if !defined(MA_NO_FFMPEG)
     uint8_t bitsPerSample;
@@ -103,11 +106,10 @@ typedef struct
     ma_ffmpeg_queue queue;
 	ma_mutex lock;
     ma_bool32 eofReached;
-    ma_int64 file_size;
 #endif
 } ma_ffmpeg;
 
-MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tell_proc onTell, void* pReadSeekTellUserData, const ma_decoding_backend_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_ffmpeg* pFFmpeg);
+MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tell_proc onTell, ma_ffmpeg_length_proc onGetLength, ma_bool32 isSeekable, void* pReadSeekTellUserData, const ma_decoding_backend_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_ffmpeg* pFFmpeg);
 MA_API void ma_ffmpeg_uninit(ma_ffmpeg* pFFmpeg, const ma_allocation_callbacks* pAllocationCallbacks);
 MA_API ma_result ma_ffmpeg_read_pcm_frames(ma_ffmpeg* pFFmpeg, void* pFramesOut, ma_uint64 frameCount, ma_uint64* pFramesRead);
 MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg* pFFmpeg, ma_uint64 frameIndex);
@@ -166,7 +168,7 @@ static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_siz
     ma_ffmpeg* pFFmpeg = (ma_ffmpeg*)opaque;
     ma_result result;
 	size_t bytesToRead = 0;
-	
+
     if (!pFFmpeg || !pFFmpeg->onRead || !buf || buf_size <= 0) {
         return -1;
     }
@@ -193,12 +195,24 @@ static int64_t ma_ffmpeg_avio_callback__seek(void* opaque, int64_t offset, int w
     ma_seek_origin origin;
     ma_int64 cursor;
 
-    if (!pFFmpeg->onSeek || !pFFmpeg->onTell)
-        return AVERROR(EINVAL);
-
     if (whence == AVSEEK_SIZE) {
-        return pFFmpeg->file_size;
+        ma_int64 length = 0;
+        if (pFFmpeg->onGetLength == NULL) {
+            return AVERROR(ENOSYS);
+        }
+
+        result = pFFmpeg->onGetLength(pFFmpeg->pReadSeekTellUserData, &length);
+        if (result != MA_SUCCESS || length < 0) {
+            return AVERROR(ENOSYS);
+        }
+
+        return length;
     }
+
+    if (!pFFmpeg->isSeekable || !pFFmpeg->onSeek || !pFFmpeg->onTell) {
+        return AVERROR(ENOSYS);
+    }
+
     whence &= ~AVSEEK_FORCE;
     if (whence == SEEK_SET) {
         origin = ma_seek_origin_start;
@@ -559,13 +573,13 @@ static ma_result ma_ffmpeg_init_internal(const ma_decoding_backend_config *pConf
 }
 
 
-MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tell_proc onTell, void *pReadSeekTellUserData, const ma_decoding_backend_config *pConfig, const ma_allocation_callbacks *pAllocationCallbacks, ma_ffmpeg *pFFmpeg) {
+MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tell_proc onTell, ma_ffmpeg_length_proc onGetLength, ma_bool32 isSeekable, void *pReadSeekTellUserData, const ma_decoding_backend_config *pConfig, const ma_allocation_callbacks *pAllocationCallbacks, ma_ffmpeg *pFFmpeg) {
     ma_result result;
 
     (void)pAllocationCallbacks;
     (void)pConfig;
 
-    if (pFFmpeg == NULL || onRead == NULL || onSeek == NULL || onTell == NULL) {
+    if (pFFmpeg == NULL || onRead == NULL || (isSeekable && (onSeek == NULL || onTell == NULL))) {
         return MA_INVALID_ARGS;
     }
 
@@ -577,15 +591,9 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
     pFFmpeg->onRead = onRead;
     pFFmpeg->onSeek = onSeek;
     pFFmpeg->onTell = onTell;
+    pFFmpeg->onGetLength = onGetLength;
     pFFmpeg->pReadSeekTellUserData = pReadSeekTellUserData;
-
-    if (pFFmpeg->onSeek && pFFmpeg->onTell) {
-        pFFmpeg->onSeek(pFFmpeg->pReadSeekTellUserData, 0, ma_seek_origin_end);
-        pFFmpeg->onTell(pFFmpeg->pReadSeekTellUserData, &pFFmpeg->file_size);
-        pFFmpeg->onSeek(pFFmpeg->pReadSeekTellUserData, 0, ma_seek_origin_start);
-    }else {
-        pFFmpeg->file_size = 0;
-    }
+    pFFmpeg->isSeekable = isSeekable;
 
     #if !defined(MA_NO_FFMPEG)
     {
@@ -607,6 +615,7 @@ MA_API ma_result ma_ffmpeg_init(ma_read_proc onRead, ma_seek_proc onSeek, ma_tel
             return MA_ERROR;
         }
         pFFmpeg->formatCtx->pb = avio_ctx;
+        avio_ctx->seekable = pFFmpeg->isSeekable ? AVIO_SEEKABLE_NORMAL : 0;
         pFFmpeg->avioCtx = avio_ctx;
         AVDictionary* options = NULL;
         av_dict_set(&options, "fflags", "fastseek+discardcorrupt", 0);
@@ -755,7 +764,7 @@ MA_API ma_result ma_ffmpeg_read_pcm_frames(ma_ffmpeg *pFFmpeg, void *pFramesOut,
         }
         size_t bytesCount = frameCount * pFFmpeg->bitsPerSample * pFFmpeg->codecCtx->ch_layout.nb_channels;
         ma_result ret;
-		ma_result finalResult = MA_SUCCESS; 
+		ma_result finalResult = MA_SUCCESS;
         while (pFFmpeg->queue.size < bytesCount) {
             ret = decode_one_cycle(pFFmpeg);
             if (ret == MA_AT_END){
@@ -959,11 +968,11 @@ MA_API ma_result ma_ffmpeg_get_length_in_pcm_frames(ma_ffmpeg *pFFmpeg, ma_uint6
         if (!pFFmpeg || !pFFmpeg->formatCtx || !pFFmpeg->stream || !pLength) {
             return MA_INVALID_ARGS;
         }
-    
+
         AVFormatContext *fmt_ctx = pFFmpeg->formatCtx;
         AVStream *stream = pFFmpeg->stream;
         AVCodecParameters *codecpar = stream->codecpar;
-    
+
         // 方法 1：优先使用 duration × sample_rate
         if (stream->duration != AV_NOPTS_VALUE && codecpar->sample_rate > 0) {
             *pLength = (ma_uint64)(av_q2d(stream->time_base) * stream->duration * codecpar->sample_rate);
@@ -976,7 +985,7 @@ MA_API ma_result ma_ffmpeg_get_length_in_pcm_frames(ma_ffmpeg *pFFmpeg, ma_uint6
             *pLength = (ma_uint64)(duration_seconds * codecpar->sample_rate);
             return MA_SUCCESS;
         }
-    
+
         // 方法 2：基于 nb_frames 和每帧采样数
         ma_uint64 samples_per_frame = 0;
         switch (codecpar->codec_id) {
@@ -987,7 +996,7 @@ MA_API ma_result ma_ffmpeg_get_length_in_pcm_frames(ma_ffmpeg *pFFmpeg, ma_uint6
             case AV_CODEC_ID_OPUS: samples_per_frame = 120 * codecpar->sample_rate / 1000; break;
             default: samples_per_frame = 0;
         }
-    
+
         if (samples_per_frame > 0 && stream->nb_frames > 0) {
             *pLength = stream->nb_frames * samples_per_frame;
             return MA_SUCCESS;
