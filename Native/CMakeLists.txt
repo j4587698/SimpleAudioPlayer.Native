@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 if(ANDROID)
     # 强制使用LLD链接器
-    set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld" CACHE STRING "" FORCE)
-    set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=lld" CACHE STRING "" FORCE)
-    set(CMAKE_MODULE_LINKER_FLAGS "-fuse-ld=lld" CACHE STRING "" FORCE)
+    set(ANDROID_16KB_PAGE_LINKER_FLAG "-Wl,-z,max-page-size=16384")
+    set(CMAKE_EXE_LINKER_FLAGS "-fuse-ld=lld ${ANDROID_16KB_PAGE_LINKER_FLAG}" CACHE STRING "" FORCE)
+    set(CMAKE_SHARED_LINKER_FLAGS "-fuse-ld=lld ${ANDROID_16KB_PAGE_LINKER_FLAG}" CACHE STRING "" FORCE)
+    set(CMAKE_MODULE_LINKER_FLAGS "-fuse-ld=lld ${ANDROID_16KB_PAGE_LINKER_FLAG}" CACHE STRING "" FORCE)
 endif()
 
 project(audio_player)
@@ -244,9 +245,13 @@ elseif(APPLE)
 	endif ()
 
 elseif(ANDROID)
-	add_link_options(
+	if(NOT DEFINED ANDROID_16KB_PAGE_LINKER_FLAG)
+		set(ANDROID_16KB_PAGE_LINKER_FLAG "-Wl,-z,max-page-size=16384")
+	endif()
+	target_link_options(audio_player PRIVATE
         "-fuse-ld=lld"
         "-B${ANDROID_TOOLCHAIN_ROOT}/bin"
+        "${ANDROID_16KB_PAGE_LINKER_FLAG}"
     )
 	if(ENABLE_LTO)
         # 确保这些路径存在
