@@ -9,7 +9,14 @@ This repository contains the native library for the [SimpleAudioPlayer](https://
 - FFmpeg-based audio decoding with common format support
 - Cross-platform audio backend via miniaudio
 - Stream playback and audio resampling support
+- Decoder callback support for stream length and seek capability
+- Propagates stream and decoder failures separately from normal EOF
 - Clean C/C++ API interface
+
+## Version 2.0
+Version 2.0 updates the native callback contract used by SimpleAudioPlayer. It adds explicit stream length and seek capability callbacks, preserves decode failure results, and reports I/O failures separately from normal end-of-stream completion.
+
+Use SimpleAudioPlayer.Native 2.0.0 with a SimpleAudioPlayer version that targets the 2.0 native API. Older managed packages may not call the updated native entry points correctly.
 
 ## Dependencies
 - [FFmpeg](https://ffmpeg.org/) (version >= 6.1)
