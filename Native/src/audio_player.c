@@ -483,7 +483,7 @@ AUDIO_PLAYER_API ma_result audio_init_decoder(AudioContext* ctx, ma_decoder_read
     ma_mutex_unlock(&ctx->buffer_mutex);
 
     // 配置自定义后端
-    const ma_decoding_backend_vtable* backends[] = { &g_ma_decoding_backend_vtable_ffmpeg };
+    ma_decoding_backend_vtable* backends[] = { &g_ma_decoding_backend_vtable_ffmpeg };
 
     ma_decoder_config decoderConfig = ma_decoder_config_init(ctx->device.playback.format, ctx->device.playback.channels, ctx->device.sampleRate);
     decoderConfig.ppCustomBackendVTables = backends;
