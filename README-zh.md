@@ -9,7 +9,13 @@
 - 基于FFmpeg的音频解码，支持常见格式
 - 通过miniaudio实现跨平台音频后端
 - 支持流式播放和音频重采样
+- 支持 PCM、WAV、AAC、M4A 的 Native 录音输出
 - 简洁的C/C++ API接口
+
+## Version 2.1
+Version 2.1 增加 Native 录音 API，支持 PCM 流、WAV、AAC ADTS 和 M4A 输出，并支持面向托管层的回调式流输出。
+
+请将 SimpleAudioPlayer.Native 2.1.0 与面向 2.1 native API 的 SimpleAudioPlayer 版本配套使用。旧版托管包可能无法正确调用新增的 native 录音入口。
 
 ## 依赖项
 - [FFmpeg](https://ffmpeg.org/) (版本 >= 6.1)
