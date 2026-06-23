@@ -60,6 +60,8 @@ set(FFMPEG_BASE_ARGS
     --disable-everything
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
 	--enable-decoder=ape,flac,alac,wavpack,mp3,aac,vorbis,opus,pcm_s16le,pcm_s24le,pcm_s32le
+    --enable-encoder=aac
+    --enable-muxer=adts,ipod
     --enable-protocol=file,pipe
 	--enable-parser=aac,aac_latm,flac,ape,mp3,alac,wavpack,vorbis,opus
     #--enable-filter=aformat,anull,atrim
@@ -175,6 +177,7 @@ ExternalProject_Add(ffmpeg
 add_library(audio_player SHARED
     src/audio_player.c
     src/audio_player.h
+    src/audio_recorder.h
     src/miniaudio_ffmpeg.h
     src/miniaudio.h
 )
@@ -265,7 +268,6 @@ endif()
 # 通用优化
 target_compile_definitions(audio_player PRIVATE
 	AUDIO_PLAYER_BUILD
-    MA_NO_WAV
     MA_NO_MP3
     MA_NO_FLAC
 )

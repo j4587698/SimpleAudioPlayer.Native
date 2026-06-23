@@ -757,3 +757,5 @@ AUDIO_PLAYER_API ma_result get_decode_result(AudioContext* ctx){
     ma_mutex_unlock(&ctx->buffer_mutex);
     return result;
 }
+
+#include "audio_recorder.c"
