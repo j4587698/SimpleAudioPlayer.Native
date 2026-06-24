@@ -35,6 +35,7 @@ struct AudioRecorderContext {
     bool simulate_thread_started;
     bool simulate_capture;
     bool stop_requested;
+    bool device_stop_initiated;
     bool recording;
     bool encoder_initialized;
     bool encoder_finalized;
@@ -874,6 +875,26 @@ static void audio_recorder_uninit_encoder(AudioRecorderContext* ctx)
 }
 #endif
 
+static void audio_recorder_request_device_stop(AudioRecorderContext* ctx)
+{
+    if (!ctx->device_initialized) {
+        return;
+    }
+
+    // 保证 ma_device_stop 只被调用一次，避免写线程与停止线程并发调用导致的竞态。
+    bool shouldStop = false;
+    ma_mutex_lock(&ctx->buffer_mutex);
+    if (!ctx->device_stop_initiated) {
+        ctx->device_stop_initiated = true;
+        shouldStop = true;
+    }
+    ma_mutex_unlock(&ctx->buffer_mutex);
+
+    if (shouldStop) {
+        ma_device_stop(&ctx->device);
+    }
+}
+
 static void audio_recorder_data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
 {
     AudioRecorderContext* ctx = (AudioRecorderContext*)pDevice->pUserData;
@@ -984,9 +1005,7 @@ static ma_thread_result MA_THREADCALL audio_recorder_write_thread_proc(void* pDa
             ctx->stop_requested = true;
             audio_recorder_buffer_reset_locked(ctx);
             ma_mutex_unlock(&ctx->buffer_mutex);
-            if (ctx->device_initialized) {
-                ma_device_stop(&ctx->device);
-            }
+            audio_recorder_request_device_stop(ctx);
             break;
         }
     }
@@ -1131,6 +1150,7 @@ AUDIO_PLAYER_API ma_result audio_recorder_start(AudioRecorderContext* ctx)
     }
 
     ctx->stop_requested = false;
+    ctx->device_stop_initiated = false;
     ctx->result = MA_SUCCESS;
     ma_result result = ma_thread_create(&ctx->write_thread, ma_thread_priority_normal, 0, audio_recorder_write_thread_proc, ctx, NULL);
     if (result != MA_SUCCESS) {
@@ -1173,9 +1193,7 @@ AUDIO_PLAYER_API ma_result audio_recorder_stop(AudioRecorderContext* ctx)
         return MA_INVALID_ARGS;
     }
 
-    if (ctx->device_initialized) {
-        ma_device_stop(&ctx->device);
-    }
+    audio_recorder_request_device_stop(ctx);
 
     ma_mutex_lock(&ctx->buffer_mutex);
     ctx->stop_requested = true;
