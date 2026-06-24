@@ -19,7 +19,7 @@ Version 2.1 adds native recording APIs. It supports PCM streams, WAV, AAC ADTS, 
 
 Version 2.0 updated the native callback contract used by SimpleAudioPlayer. It added explicit stream length and seek capability callbacks, preserves decode failure results, and reports I/O failures separately from normal end-of-stream completion.
 
-Use SimpleAudioPlayer.Native 2.1.0 with a SimpleAudioPlayer version that targets the 2.1 native API. Older managed packages may not call the updated native entry points correctly.
+Use SimpleAudioPlayer.Native 2.1.1 with a SimpleAudioPlayer version that targets the 2.1 native API. Older managed packages may not call the updated native entry points correctly.
 
 ## Dependencies
 - [FFmpeg](https://ffmpeg.org/) (version >= 6.1)
