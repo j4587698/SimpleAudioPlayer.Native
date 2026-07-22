@@ -12,10 +12,14 @@
 - 支持 PCM、WAV、AAC、M4A 的 Native 录音输出
 - 简洁的C/C++ API接口
 
-## Version 2.1
-Version 2.1 增加 Native 录音 API，支持 PCM 流、WAV、AAC ADTS 和 M4A 输出，并支持面向托管层的回调式流输出。
+## Version 2.2
+Version 2.2 增加可配置的输出设备 API，并将播放用途和内容类型映射到各平台支持的音频后端。
 
-请将 SimpleAudioPlayer.Native 2.1.1 与面向 2.1 native API 的 SimpleAudioPlayer 版本配套使用。旧版托管包可能无法正确调用新增的 native 录音入口。
+请将 SimpleAudioPlayer.Native 2.2.0 与 SimpleAudioPlayer 2.2.0 配套使用。旧版 Native 包不包含新增的输出设备入口。
+
+## 输出设备配置
+
+`audio_init_device_ex` 接受带版本和结构大小的 `AudioDeviceConfig`，支持配置采样率、声道、缓冲周期、性能模式、共享模式以及跨平台播放用途。Android 下会映射到 AAudio `usage`/`contentType` 和 OpenSL ES 流类型；旧的 `audio_init_device` 保留并维持原有默认行为。
 
 ## 依赖项
 - [FFmpeg](https://ffmpeg.org/) (版本 >= 6.1)

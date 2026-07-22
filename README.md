@@ -14,12 +14,16 @@ This repository contains the native library for the [SimpleAudioPlayer](https://
 - Propagates stream and decoder failures separately from normal EOF
 - Clean C/C++ API interface
 
-## Version 2.1
-Version 2.1 adds native recording APIs. It supports PCM streams, WAV, AAC ADTS, and M4A output, including callback-based stream output for managed callers.
+## Version 2.2
+Version 2.2 adds configurable output-device APIs and maps playback usage and content type to supported platform audio backends.
 
 Version 2.0 updated the native callback contract used by SimpleAudioPlayer. It added explicit stream length and seek capability callbacks, preserves decode failure results, and reports I/O failures separately from normal end-of-stream completion.
 
-Use SimpleAudioPlayer.Native 2.1.1 with a SimpleAudioPlayer version that targets the 2.1 native API. Older managed packages may not call the updated native entry points correctly.
+Use SimpleAudioPlayer.Native 2.2.0 with SimpleAudioPlayer 2.2.0. Older native packages do not contain the extended output-device entry point.
+
+## Output Device Configuration
+
+`audio_init_device_ex` accepts a versioned, size-tagged `AudioDeviceConfig` for sample rate, channels, buffer periods, performance preference, sharing mode, and cross-platform playback intent. Android maps the intent to AAudio `usage`/`contentType` and the OpenSL ES stream type. The existing `audio_init_device` entry point remains available with its original defaults.
 
 ## Dependencies
 - [FFmpeg](https://ffmpeg.org/) (version >= 6.1)

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #define AUDIO_DECODE_BUFFER_SECONDS 4
 #define AUDIO_DECODE_CHUNK_FRAMES 4096
@@ -417,20 +418,102 @@ AUDIO_PLAYER_API AudioContext* audio_context_create(){
     return ctx;
 }
 
-AUDIO_PLAYER_API ma_result audio_init_device(AudioContext* ctx, AudioStopCallback managedCallback,
-	ma_device_notification_proc notification, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
+static ma_bool32 audio_device_config_is_valid(const AudioDeviceConfig* config)
 {
-    if (!ctx) return MA_INVALID_ARGS;
+    const size_t minimumSize = offsetof(AudioDeviceConfig, share_mode) + sizeof(config->share_mode);
+    if (config == NULL || config->struct_size < minimumSize || config->version != AUDIO_DEVICE_CONFIG_VERSION) {
+        return MA_FALSE;
+    }
+
+    if (config->performance_profile < AUDIO_PERFORMANCE_PROFILE_LOW_LATENCY ||
+        config->performance_profile > AUDIO_PERFORMANCE_PROFILE_CONSERVATIVE ||
+        config->usage < AUDIO_PLAYBACK_USAGE_DEFAULT ||
+        config->usage > AUDIO_PLAYBACK_USAGE_ALARM ||
+        config->content_type < AUDIO_CONTENT_TYPE_DEFAULT ||
+        config->content_type > AUDIO_CONTENT_TYPE_SONIFICATION ||
+        config->share_mode < AUDIO_SHARE_MODE_SHARED ||
+        config->share_mode > AUDIO_SHARE_MODE_EXCLUSIVE) {
+        return MA_FALSE;
+    }
+
+    return MA_TRUE;
+}
+
+static void audio_apply_usage_config(ma_device_config* deviceConfig, AudioPlaybackUsage usage)
+{
+    switch (usage) {
+        case AUDIO_PLAYBACK_USAGE_MEDIA:
+            deviceConfig->aaudio.usage = ma_aaudio_usage_media;
+            deviceConfig->opensl.streamType = ma_opensl_stream_type_media;
+            break;
+        case AUDIO_PLAYBACK_USAGE_GAME:
+            deviceConfig->aaudio.usage = ma_aaudio_usage_game;
+            deviceConfig->opensl.streamType = ma_opensl_stream_type_media;
+            deviceConfig->wasapi.usage = ma_wasapi_usage_games;
+            break;
+        case AUDIO_PLAYBACK_USAGE_VOICE_COMMUNICATION:
+            deviceConfig->aaudio.usage = ma_aaudio_usage_voice_communication;
+            deviceConfig->opensl.streamType = ma_opensl_stream_type_voice;
+            break;
+        case AUDIO_PLAYBACK_USAGE_NOTIFICATION:
+            deviceConfig->aaudio.usage = ma_aaudio_usage_notification;
+            deviceConfig->opensl.streamType = ma_opensl_stream_type_notification;
+            break;
+        case AUDIO_PLAYBACK_USAGE_ALARM:
+            deviceConfig->aaudio.usage = ma_aaudio_usage_alarm;
+            deviceConfig->opensl.streamType = ma_opensl_stream_type_alarm;
+            break;
+        case AUDIO_PLAYBACK_USAGE_DEFAULT:
+        default:
+            break;
+    }
+}
+
+static void audio_apply_content_type_config(ma_device_config* deviceConfig, AudioContentType contentType)
+{
+    switch (contentType) {
+        case AUDIO_CONTENT_TYPE_MUSIC:
+            deviceConfig->aaudio.contentType = ma_aaudio_content_type_music;
+            break;
+        case AUDIO_CONTENT_TYPE_SPEECH:
+            deviceConfig->aaudio.contentType = ma_aaudio_content_type_speech;
+            break;
+        case AUDIO_CONTENT_TYPE_MOVIE:
+            deviceConfig->aaudio.contentType = ma_aaudio_content_type_movie;
+            break;
+        case AUDIO_CONTENT_TYPE_SONIFICATION:
+            deviceConfig->aaudio.contentType = ma_aaudio_content_type_sonification;
+            break;
+        case AUDIO_CONTENT_TYPE_DEFAULT:
+        default:
+            break;
+    }
+}
+
+AUDIO_PLAYER_API ma_result audio_init_device_ex(AudioContext* ctx, AudioStopCallback managedCallback,
+    ma_device_notification_proc notification, const AudioDeviceConfig* config)
+{
+    if (!ctx || !audio_device_config_is_valid(config)) return MA_INVALID_ARGS;
 	if (ctx->device_initialized) return MA_SUCCESS;
 
     // 配置音频设备
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
-    deviceConfig.playback.format   = format;
-    deviceConfig.playback.channels = channels;
-    deviceConfig.sampleRate        = sampleRate;
+    deviceConfig.playback.format   = config->format;
+    deviceConfig.playback.channels = config->channels;
+    deviceConfig.playback.shareMode = config->share_mode == AUDIO_SHARE_MODE_EXCLUSIVE
+        ? ma_share_mode_exclusive
+        : ma_share_mode_shared;
+    deviceConfig.sampleRate        = config->sample_rate;
+    deviceConfig.periodSizeInMilliseconds = config->period_size_in_milliseconds;
+    deviceConfig.periods           = config->periods;
+    deviceConfig.performanceProfile = config->performance_profile == AUDIO_PERFORMANCE_PROFILE_CONSERVATIVE
+        ? ma_performance_profile_conservative
+        : ma_performance_profile_low_latency;
     deviceConfig.dataCallback      = data_callback;
     deviceConfig.pUserData         = ctx;
 	deviceConfig.notificationCallback = notification;
+    audio_apply_usage_config(&deviceConfig, config->usage);
+    audio_apply_content_type_config(&deviceConfig, config->content_type);
 
     ma_result result = ma_device_init(NULL, &deviceConfig, &ctx->device);
     if (result != MA_SUCCESS) {
@@ -454,6 +537,24 @@ AUDIO_PLAYER_API ma_result audio_init_device(AudioContext* ctx, AudioStopCallbac
 
     ctx->device_initialized = true;
     return MA_SUCCESS;
+}
+
+AUDIO_PLAYER_API ma_result audio_init_device(AudioContext* ctx, AudioStopCallback managedCallback,
+	ma_device_notification_proc notification, const ma_format format, const ma_uint32 channels, const ma_uint32 sampleRate)
+{
+    AudioDeviceConfig config;
+    memset(&config, 0, sizeof(config));
+    config.struct_size = sizeof(config);
+    config.version = AUDIO_DEVICE_CONFIG_VERSION;
+    config.format = format;
+    config.channels = channels;
+    config.sample_rate = sampleRate;
+    config.performance_profile = AUDIO_PERFORMANCE_PROFILE_LOW_LATENCY;
+    config.usage = AUDIO_PLAYBACK_USAGE_DEFAULT;
+    config.content_type = AUDIO_CONTENT_TYPE_DEFAULT;
+    config.share_mode = AUDIO_SHARE_MODE_SHARED;
+
+    return audio_init_device_ex(ctx, managedCallback, notification, &config);
 }
 
 
