@@ -68,6 +68,7 @@ set(FFMPEG_BASE_ARGS
     --enable-static
 	--enable-pic
 	--extra-cflags=-fPIC
+	--extra-asflags=-fPIC
 	--enable-cross-compile
 )
 
@@ -87,7 +88,7 @@ if(WINDOWS)
         --arch=${CROSS_ARCH}
     )
 elseif(ANDROID)
-	# 架构映射表
+	# 架构映射表（NDK ABI -> 工具链前缀）
 	set(ANDROID_ARCH_MAP
 		"armeabi-v7a=armv7a-linux-androideabi"
 		"arm64-v8a=aarch64-linux-android"
@@ -95,7 +96,15 @@ elseif(ANDROID)
 		"x86=i686-linux-android"
 	)
 	
-	# 解析架构参数
+	# FFmpeg --arch 映射（NDK ABI 名与 FFmpeg 架构名不同）
+	set(FFMPEG_ARCH_MAP
+		"armeabi-v7a=arm"
+		"arm64-v8a=aarch64"
+		"x86_64=x86_64"
+		"x86=i686"
+	)
+	
+	# 解析工具链前缀
 	foreach(PAIR IN LISTS ANDROID_ARCH_MAP)
 		string(REPLACE "=" ";" PAIR_LIST ${PAIR})
 		list(GET PAIR_LIST 0 KEY)
@@ -105,12 +114,25 @@ elseif(ANDROID)
 			break()
 		endif()
 	endforeach()
+
+	# 解析 FFmpeg 架构名
+	set(FFMPEG_ARCH "")
+	foreach(PAIR IN LISTS FFMPEG_ARCH_MAP)
+		string(REPLACE "=" ";" PAIR_LIST ${PAIR})
+		list(GET PAIR_LIST 0 KEY)
+		list(GET PAIR_LIST 1 VALUE)
+		if("${ANDROID_ABI}" STREQUAL "${KEY}")
+			set(FFMPEG_ARCH "${VALUE}")
+			break()
+		endif()
+	endforeach()
+
 	set(ANDROID_NDK $ENV{ANDROID_NDK_ROOT})
 	set(ANDROID_TOOLCHAIN_ROOT ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64)
     set(ANDROID_SYSROOT ${ANDROID_TOOLCHAIN_ROOT}/sysroot)
     list(APPEND FFMPEG_BASE_ARGS
         --target-os=android
-        --arch=${CROSS_ARCH}
+        --arch=${FFMPEG_ARCH}
         --sysroot=${ANDROID_SYSROOT}
 		--cc=${ANDROID_TOOLCHAIN_ROOT}/bin/${TOOLCHAIN_PREFIX}${ANDROID_NATIVE_API_LEVEL}-clang
 		--cxx=${ANDROID_TOOLCHAIN_ROOT}/${TOOLCHAIN_PREFIX}${ANDROID_NATIVE_API_LEVEL}-clang++
