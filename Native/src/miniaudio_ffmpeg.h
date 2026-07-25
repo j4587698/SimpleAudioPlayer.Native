@@ -106,6 +106,11 @@ typedef struct
     ma_ffmpeg_queue queue;
 	ma_mutex lock;
     ma_bool32 eofReached;
+    /* 字节流层是否已经读到末尾（avio read 回调返回过 AVERROR_EOF）。
+       用于区分「文件尾部收尾失败」与「中途真正的错误」。 */
+    ma_bool32 avioSawEof;
+    /* 最近一次 ffmpeg 调用失败的原始错误码，仅用于诊断。 */
+    int lastAvError;
 #endif
 } ma_ffmpeg;
 
@@ -175,12 +180,14 @@ static int ma_ffmpeg_avio_callback__read(void* opaque, uint8_t* buf, int buf_siz
 
     result = pFFmpeg->onRead(pFFmpeg->pReadSeekTellUserData, buf, buf_size, &bytesToRead);
     if (result == MA_AT_END) {
+        pFFmpeg->avioSawEof = MA_TRUE;
         return AVERROR_EOF;
     }
     if (result != MA_SUCCESS) {
         return AVERROR(EIO);
     }
     if (bytesToRead == 0) {
+        pFFmpeg->avioSawEof = MA_TRUE;
         return AVERROR_EOF;
     }
     if (bytesToRead > (size_t)buf_size) {
@@ -233,6 +240,9 @@ static int64_t ma_ffmpeg_avio_callback__seek(void* opaque, int64_t offset, int w
     if (result != MA_SUCCESS) {
         return AVERROR(EIO);
     }
+
+    /* 已重新定位，之前观察到的字节流 EOF 不再成立。 */
+    pFFmpeg->avioSawEof = MA_FALSE;
 
     return cursor;
 }
@@ -401,7 +411,15 @@ static ma_result decode_one_cycle(ma_ffmpeg* pFFmpeg) {
                 // 标记EOF并发送空包刷新解码器
                 pFFmpeg->eofReached = MA_TRUE;
                 avcodec_send_packet(pFFmpeg->codecCtx, NULL);
+            } else if (pFFmpeg->avioSawEof) {
+                /* 字节流已经读到末尾，此处的失败来自文件尾部无法构成完整包的残留数据
+                   （常见于尾部的标签/填充字节）。这属于自然收尾而非真正的错误：
+                   按 EOF 流程 flush 解码器，把剩余帧放完。 */
+                pFFmpeg->lastAvError = ret;
+                pFFmpeg->eofReached = MA_TRUE;
+                avcodec_send_packet(pFFmpeg->codecCtx, NULL);
             } else {
+                pFFmpeg->lastAvError = ret;
                 return MA_ERROR;
             }
         } else {
@@ -429,6 +447,11 @@ static ma_result decode_one_cycle(ma_ffmpeg* pFFmpeg) {
         } else if (ret == AVERROR_EOF) {
             return MA_AT_END; // 所有残留帧处理完毕
         } else if (ret < 0) {
+            pFFmpeg->lastAvError = ret;
+            /* 同上：字节流已到末尾时，收尾阶段的解码失败视为正常结束。 */
+            if (pFFmpeg->avioSawEof) {
+                return MA_AT_END;
+            }
             return MA_ERROR;
         }
 
@@ -816,6 +839,7 @@ MA_API ma_result ma_ffmpeg_seek_to_pcm_frame(ma_ffmpeg *pFFmpeg, ma_uint64 frame
 		// 加锁
 		ma_mutex_lock(&pFFmpeg->lock);
         pFFmpeg->eofReached = MA_FALSE;
+        pFFmpeg->avioSawEof = MA_FALSE;
         ma_uint64 length = 0;
         result = ma_ffmpeg_get_length_in_pcm_frames(pFFmpeg, &length);
         if (result != MA_SUCCESS || !pFFmpeg->formatCtx || !pFFmpeg->codecCtx || !pFFmpeg->stream || frameIndex > length) {
