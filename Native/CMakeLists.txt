@@ -68,7 +68,7 @@ set(FFMPEG_BASE_ARGS
     --enable-static
 	--enable-pic
 	--extra-cflags=-fPIC
-	--extra-asflags=-fPIC
+	--asflags=-fPIC
 	--enable-cross-compile
 )
 
