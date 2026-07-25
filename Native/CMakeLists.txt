@@ -68,7 +68,6 @@ set(FFMPEG_BASE_ARGS
     --enable-static
 	--enable-pic
 	--extra-cflags=-fPIC
-	--asflags=-fPIC
 	--enable-cross-compile
 )
 
@@ -251,8 +250,11 @@ elseif(SAP_ARCH_IS_X86_64)
 		set(SAP_ASM_SUMMARY "x86asm disabled (未找到可用的 nasm，已自动降级)")
 	endif()
 else()
-	# ARM / ARM64 等：使用 ffmpeg 默认的 --enable-asm，无需外部工具
-	set(SAP_ASM_SUMMARY "asm enabled (compiler built-in assembler)")
+	# ARM / ARM64：FFmpeg 的 NEON 汇编在链接 .so 时存在 PIC 重定位问题
+	# （Linux aarch64: R_AARCH64_ADR_PREL_PG_HI21），且 Android NDK 下的
+	# 架构检测不稳定。暂时关闭，保留旧的 --disable-asm 行为。
+	list(APPEND FFMPEG_BASE_ARGS --disable-asm)
+	set(SAP_ASM_SUMMARY "asm disabled (ARM/ARM64 PIC 重定位兼容性问题)")
 endif()
 
 message(STATUS "[asm] target arch = '${SAP_TARGET_ARCH}', ${SAP_ASM_SUMMARY}")
