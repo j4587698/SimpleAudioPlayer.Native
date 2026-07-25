@@ -55,7 +55,6 @@ set(FFMPEG_BASE_ARGS
     --disable-bzlib
     --disable-lzma
 	--disable-autodetect
-	--disable-asm
 	--disable-vulkan
     --disable-everything
     --enable-demuxer=aac,ac3,aiff,ape,asf,au,flac,mov,mp3,mpc,ogg,wav,wv
@@ -156,6 +155,85 @@ elseif(LINUX)
 		)
 	endif()
 endif()
+
+#----------------------------------------------------------
+# 汇编优化探测（asm / x86asm）
+#
+# ffmpeg 有两个独立开关：
+#   --disable-asm    : 关闭全部平台汇编（含 ARM NEON），代价大
+#   --disable-x86asm : 仅关闭依赖外部汇编器（nasm）的 x86 SIMD
+#
+# 策略：
+#   ARM / ARM64 : 汇编走编译器内置汇编器，无外部依赖，始终开启
+#   x86_64      : 需要 nasm >= 2.13，探测到才开启，否则自动降级
+#   x86 (32 位) : --enable-pic 与 i386 汇编的 ebx 分配冲突，且在 Android
+#                 上会产生 TEXTREL 导致 .so 被拒绝，一律关闭 x86asm
+#----------------------------------------------------------
+option(ENABLE_FFMPEG_ASM "Enable ffmpeg assembly optimizations when the toolchain allows it" ON)
+
+# 归一化目标架构（各平台传入的变量名不同）
+if(ANDROID)
+	set(SAP_TARGET_ARCH "${ANDROID_ABI}")
+elseif(APPLE)
+	set(SAP_TARGET_ARCH "${APPLE_ARCH}")
+else()
+	set(SAP_TARGET_ARCH "${CROSS_ARCH}")
+endif()
+string(TOLOWER "${SAP_TARGET_ARCH}" SAP_TARGET_ARCH_LOWER)
+
+set(SAP_ARCH_IS_X86_64 FALSE)
+set(SAP_ARCH_IS_X86_32 FALSE)
+if(SAP_TARGET_ARCH_LOWER MATCHES "^(x86_64|x64|amd64)$")
+	set(SAP_ARCH_IS_X86_64 TRUE)
+elseif(SAP_TARGET_ARCH_LOWER MATCHES "^(x86|i386|i686)$")
+	set(SAP_ARCH_IS_X86_32 TRUE)
+endif()
+
+# 仅 x86_64 需要外部汇编器；探测失败时不报错，走降级分支
+set(SAP_HAVE_USABLE_NASM FALSE)
+if(ENABLE_FFMPEG_ASM AND SAP_ARCH_IS_X86_64)
+	find_program(SAP_NASM_EXECUTABLE NAMES nasm)
+	if(SAP_NASM_EXECUTABLE)
+		execute_process(
+			COMMAND "${SAP_NASM_EXECUTABLE}" -v
+			RESULT_VARIABLE SAP_NASM_PROBE_RESULT
+			OUTPUT_VARIABLE SAP_NASM_PROBE_OUTPUT
+			ERROR_VARIABLE SAP_NASM_PROBE_OUTPUT
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+		)
+		if(SAP_NASM_PROBE_RESULT EQUAL 0 AND SAP_NASM_PROBE_OUTPUT MATCHES "([0-9]+)\\.([0-9]+)")
+			set(SAP_NASM_MAJOR "${CMAKE_MATCH_1}")
+			set(SAP_NASM_MINOR "${CMAKE_MATCH_2}")
+			if(SAP_NASM_MAJOR GREATER 2
+				OR (SAP_NASM_MAJOR EQUAL 2 AND SAP_NASM_MINOR GREATER_EQUAL 13))
+				set(SAP_HAVE_USABLE_NASM TRUE)
+			else()
+				message(WARNING "[asm] nasm ${SAP_NASM_MAJOR}.${SAP_NASM_MINOR} 过旧（需要 >= 2.13），将关闭 x86asm")
+			endif()
+		endif()
+	endif()
+endif()
+
+if(NOT ENABLE_FFMPEG_ASM)
+	list(APPEND FFMPEG_BASE_ARGS --disable-asm)
+	set(SAP_ASM_SUMMARY "disabled (ENABLE_FFMPEG_ASM=OFF)")
+elseif(SAP_ARCH_IS_X86_32)
+	list(APPEND FFMPEG_BASE_ARGS --disable-x86asm)
+	set(SAP_ASM_SUMMARY "x86asm disabled (32-bit x86 与 PIC 不兼容)")
+elseif(SAP_ARCH_IS_X86_64)
+	if(SAP_HAVE_USABLE_NASM)
+		list(APPEND FFMPEG_BASE_ARGS --enable-x86asm --x86asmexe=${SAP_NASM_EXECUTABLE})
+		set(SAP_ASM_SUMMARY "x86asm enabled via ${SAP_NASM_EXECUTABLE}")
+	else()
+		list(APPEND FFMPEG_BASE_ARGS --disable-x86asm)
+		set(SAP_ASM_SUMMARY "x86asm disabled (未找到可用的 nasm，已自动降级)")
+	endif()
+else()
+	# ARM / ARM64 等：使用 ffmpeg 默认的 --enable-asm，无需外部工具
+	set(SAP_ASM_SUMMARY "asm enabled (compiler built-in assembler)")
+endif()
+
+message(STATUS "[asm] target arch = '${SAP_TARGET_ARCH}', ${SAP_ASM_SUMMARY}")
 
 ExternalProject_Add(ffmpeg
     GIT_REPOSITORY "https://github.com/FFmpeg/FFmpeg.git"
