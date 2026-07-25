@@ -91,6 +91,10 @@ jobs:
         sudo apt-get install -y \
           mingw-w64 \
           wine64
+        # nasm 是宿主工具，交叉编译 x86_64 目标时 ffmpeg 需要它来编译 SIMD 汇编。
+        # 32 位 x86 目标不会用到（CMake 会自动降级为 --disable-x86asm）。
+        sudo apt-get install -y nasm
+        nasm -v
 
     - name: Configure
       run: |
@@ -129,6 +133,9 @@ jobs:
         sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
         sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
         sudo apt-get install -y clang lld llvm
+        # x86_64 目标的 ffmpeg SIMD 汇编需要 nasm；arm/aarch64 不需要（走编译器内置汇编器）
+        sudo apt-get install -y nasm
+        nasm -v
 
     - name: Configure
       run: |
@@ -167,6 +174,12 @@ jobs:
         xcodebuild -version
         sudo xcodebuild -license accept
         xcrun --sdk macosx --show-sdk-path  # 验证 macOS SDK 路径
+
+    - name: Setup nasm
+      if: matrix.arch == 'x86_64'
+      run: |
+        brew install nasm
+        nasm -v
 
     - name: Configure
       run: |
@@ -245,6 +258,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install ninja-build
+        # NDK 不自带 nasm，x86_64 ABI 的 ffmpeg SIMD 汇编需要它
+        sudo apt-get install -y nasm
+        nasm -v
 
     - name: Setup NDK
       uses: android-actions/setup-android@v2
@@ -287,6 +303,17 @@ jobs:
             }
           }
         ' file="$so_file"
+
+    - name: Verify no TEXTREL
+      run: |
+        # 启用汇编后若产生 text relocation，Android 会拒绝加载该 .so
+        readelf="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+        so_file="$ARTIFACT_DIR/android-${{ matrix.abi }}/libaudio_player.so"
+        if "$readelf" -dW "$so_file" | grep -q "TEXTREL"; then
+          echo "TEXTREL found in $so_file"
+          exit 1
+        fi
+        echo "No TEXTREL in $so_file"
 
     - uses: actions/upload-artifact@v4
       with:
