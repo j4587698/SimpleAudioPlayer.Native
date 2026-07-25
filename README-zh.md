@@ -12,10 +12,12 @@
 - 支持 PCM、WAV、AAC、M4A 的 Native 录音输出
 - 简洁的C/C++ API接口
 
-## Version 2.2
+## Version 2.3
+Version 2.3 启用 FFmpeg 汇编优化：x86_64 在可用时使用 nasm 驱动的 SIMD（SSE/AVX），ARM/ARM64 使用编译器内置 NEON，32 位 x86 安全关闭 x86asm 以避免 PIC 和 Android TEXTREL 问题。同时修复了文件尾部残留数据被误报为解码错误而非自然 EOF 的问题。
+
 Version 2.2 增加可配置的输出设备 API，并将播放用途和内容类型映射到各平台支持的音频后端。
 
-请将 SimpleAudioPlayer.Native 2.2.0 与 SimpleAudioPlayer 2.2.0 配套使用。旧版 Native 包不包含新增的输出设备入口。
+请将 SimpleAudioPlayer.Native 2.3.0 与 SimpleAudioPlayer 2.3.0 配套使用。旧版 Native 包不包含新增的输出设备入口。
 
 ## 输出设备配置
 
