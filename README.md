@@ -14,12 +14,12 @@ This repository contains the native library for the [SimpleAudioPlayer](https://
 - Propagates stream and decoder failures separately from normal EOF
 - Clean C/C++ API interface
 
-## Version 2.2
+## Version 2.3
+Version 2.3 enables FFmpeg assembly optimizations: x86_64 uses nasm-driven SIMD (SSE/AVX) when available, ARM/ARM64 uses compiler-built-in NEON, and 32-bit x86 safely disables x86asm to avoid PIC and Android TEXTREL issues. It also fixes tail-of-file residual data being reported as a decode error instead of natural EOF.
+
 Version 2.2 adds configurable output-device APIs and maps playback usage and content type to supported platform audio backends.
 
-Version 2.0 updated the native callback contract used by SimpleAudioPlayer. It added explicit stream length and seek capability callbacks, preserves decode failure results, and reports I/O failures separately from normal end-of-stream completion.
-
-Use SimpleAudioPlayer.Native 2.2.0 with SimpleAudioPlayer 2.2.0. Older native packages do not contain the extended output-device entry point.
+Use SimpleAudioPlayer.Native 2.3.0 with SimpleAudioPlayer 2.3.0. Older native packages do not contain the extended output-device entry point.
 
 ## Output Device Configuration
 
