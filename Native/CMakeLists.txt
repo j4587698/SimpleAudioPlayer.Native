@@ -254,11 +254,11 @@ elseif(SAP_ARCH_IS_X86_64)
 		endif()
 	endif()
 else()
-	# ARM / ARM64：FFmpeg 的 NEON 汇编在链接 .so 时存在 PIC 重定位问题
-	# （Linux aarch64: R_AARCH64_ADR_PREL_PG_HI21），且 Android NDK 下的
-	# 架构检测不稳定。暂时关闭，保留旧的 --disable-asm 行为。
-	list(APPEND FFMPEG_BASE_ARGS --disable-asm)
-	set(SAP_ASM_SUMMARY "asm disabled (ARM/ARM64 PIC 重定位兼容性问题)")
+	# ARM / ARM64：使用 ffmpeg 默认的 --enable-asm（编译器内置汇编器，含 NEON）。
+	# ELF 平台（Linux/Android）的 NEON .S 文件会产生 R_AARCH64_ADR_PREL_PG_HI21
+	# 等 PC 相对重定位，链接 .so 时报 "may bind externally"。通过在链接器加
+	# -Bsymbolic 就地绑定符号解决，不需要关闭 asm。
+	set(SAP_ASM_SUMMARY "asm enabled (compiler built-in assembler, NEON)")
 endif()
 
 message(STATUS "[asm] target arch = '${SAP_TARGET_ARCH}', ${SAP_ASM_SUMMARY}")
@@ -319,6 +319,7 @@ elseif(LINUX)
         pthread
         m
     )
+	target_link_options(audio_player PRIVATE -Wl,-Bsymbolic)
 elseif(APPLE)
 	if (APPLE_PLATFORM STREQUAL "MACOS")
 		target_link_libraries(audio_player PRIVATE
@@ -361,6 +362,7 @@ elseif(ANDROID)
         "-fuse-ld=lld"
         "-B${ANDROID_TOOLCHAIN_ROOT}/bin"
         "${ANDROID_16KB_PAGE_LINKER_FLAG}"
+        "-Wl,-Bsymbolic"
     )
 	if(ENABLE_LTO)
         # 确保这些路径存在

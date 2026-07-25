@@ -14,12 +14,15 @@ This repository contains the native library for the [SimpleAudioPlayer](https://
 - Propagates stream and decoder failures separately from normal EOF
 - Clean C/C++ API interface
 
+## Version 2.3.1
+Version 2.3.1 restores ARM/ARM64 NEON assembly on Linux and Android by adding `-Wl,-Bsymbolic` to resolve ELF PIC relocation errors (`R_AARCH64_ADR_PREL_PG_HI21`). x86_64 nasm-driven SIMD remains enabled on macOS and Windows; Linux/Android x86_64 stays disabled due to `R_X86_64_PC32` incompatibility with ELF PIC.
+
 ## Version 2.3
 Version 2.3 enables FFmpeg assembly optimizations: x86_64 uses nasm-driven SIMD (SSE/AVX) when available, ARM/ARM64 uses compiler-built-in NEON, and 32-bit x86 safely disables x86asm to avoid PIC and Android TEXTREL issues. It also fixes tail-of-file residual data being reported as a decode error instead of natural EOF.
 
 Version 2.2 adds configurable output-device APIs and maps playback usage and content type to supported platform audio backends.
 
-Use SimpleAudioPlayer.Native 2.3.0 with SimpleAudioPlayer 2.3.0. Older native packages do not contain the extended output-device entry point.
+Use SimpleAudioPlayer.Native 2.3.1 with SimpleAudioPlayer 2.3.1. Older native packages do not contain the extended output-device entry point.
 
 ## Output Device Configuration
 
